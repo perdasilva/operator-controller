@@ -9,9 +9,10 @@ import (
 	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/constraint"
 	"github.com/operator-framework/deppy/pkg/deppy/input"
+	"github.com/operator-framework/operator-controller/internal/resolution/variable_sources/required_package"
 
 	olmentity "github.com/operator-framework/operator-controller/internal/resolution/variable_sources/entity"
-	"github.com/operator-framework/operator-controller/internal/resolution/variable_sources/required_package"
+
 	"github.com/operator-framework/operator-controller/internal/resolution/variable_sources/util/predicates"
 	entitysort "github.com/operator-framework/operator-controller/internal/resolution/variable_sources/util/sort"
 )
