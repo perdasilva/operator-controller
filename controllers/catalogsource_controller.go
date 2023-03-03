@@ -37,11 +37,20 @@ func WithRegistryClient(registry catalogsource.RegistryClient) CatalogSourceReco
 	}
 }
 
+func WithUnmanagedCatalogSourceSyncInterval(interval time.Duration) CatalogSourceReconcilerOption {
+	return func(reconciler *CatalogSourceReconciler) {
+		reconciler.unmanagedCatalogSourceSyncInterval = interval
+	}
+}
+
 // applyDefaults applies default values to empty CatalogSourceReconciler fields _after_ options have been applied
 func applyDefaults() CatalogSourceReconcilerOption {
 	return func(reconciler *CatalogSourceReconciler) {
 		if reconciler.registry == nil {
 			reconciler.registry = catalogsource.NewRegistryGRPCClient(defaultRegistryGRPCConnectionTimeout)
+		}
+		if reconciler.unmanagedCatalogSourceSyncInterval == 0 {
+			reconciler.unmanagedCatalogSourceSyncInterval = defaultCatalogSourceSyncInterval
 		}
 	}
 }
@@ -49,19 +58,21 @@ func applyDefaults() CatalogSourceReconcilerOption {
 type CatalogSourceReconciler struct {
 	sync.RWMutex
 	client.Client
-	scheme   *runtime.Scheme
-	registry catalogsource.RegistryClient
-	recorder record.EventRecorder
-	cache    map[string]map[deppy.Identifier]*input.Entity
+	scheme                             *runtime.Scheme
+	registry                           catalogsource.RegistryClient
+	recorder                           record.EventRecorder
+	unmanagedCatalogSourceSyncInterval time.Duration
+	cache                              map[string]map[deppy.Identifier]*input.Entity
 }
 
 func NewCatalogSourceReconciler(client client.Client, scheme *runtime.Scheme, recorder record.EventRecorder, options ...CatalogSourceReconcilerOption) *CatalogSourceReconciler {
 	reconciler := &CatalogSourceReconciler{
-		RWMutex:  sync.RWMutex{},
-		Client:   client,
-		scheme:   scheme,
-		recorder: recorder,
-		cache:    map[string]map[deppy.Identifier]*input.Entity{},
+		RWMutex:                            sync.RWMutex{},
+		Client:                             client,
+		scheme:                             scheme,
+		recorder:                           recorder,
+		unmanagedCatalogSourceSyncInterval: 0,
+		cache:                              map[string]map[deppy.Identifier]*input.Entity{},
 	}
 	// apply options
 	options = append(options, applyDefaults())
@@ -98,7 +109,7 @@ func (r *CatalogSourceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if isManagedCatalogSource(*catalogSource) {
 		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{RequeueAfter: defaultCatalogSourceSyncInterval}, nil
+	return ctrl.Result{RequeueAfter: r.unmanagedCatalogSourceSyncInterval}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
