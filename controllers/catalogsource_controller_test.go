@@ -10,14 +10,15 @@ import (
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/operator-framework/deppy/pkg/deppy"
 	"github.com/operator-framework/deppy/pkg/deppy/input"
-	catsrccontroller "github.com/operator-framework/operator-controller/controllers"
-	"github.com/operator-framework/operator-controller/internal/resolution/entity_sources/catalogsource"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	catsrccontroller "github.com/operator-framework/operator-controller/controllers"
+	"github.com/operator-framework/operator-controller/internal/resolution/entity_sources/catalogsource"
 )
 
 var _ catalogsource.RegistryClient = &fakeRegistryClient{}
@@ -313,7 +314,7 @@ var _ = Describe("CatalogSource Controller Test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(Equal(ctrl.Result{}))
 		})
-		
+
 		Describe("Get", func() {
 			It("should fetch an entity by ID", func() {
 				Expect(reconciler.Get(ctx, deppy.Identifier(fmt.Sprintf("%s/%s/pkg1/chan1/0.1.0", catalogSourceName, namespace)))).To(
