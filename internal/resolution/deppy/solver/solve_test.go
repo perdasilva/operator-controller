@@ -5,8 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/perdasilva/replee/pkg/deppy"
-	"github.com/perdasilva/replee/pkg/deppy/constraints"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/constraints"
 	"reflect"
 	"sort"
 	"testing"
@@ -19,6 +19,11 @@ var _ deppy.Variable = TestVariable{}
 type TestVariable struct {
 	identifier  deppy.Identifier
 	constraints []deppy.Constraint
+}
+
+func (i TestVariable) IsActivated(constraintID deppy.Identifier) (bool, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (i TestVariable) GetConstraint(constraintID deppy.Identifier) (deppy.Constraint, bool) {
@@ -81,27 +86,27 @@ func TestNotSatisfiableError(t *testing.T) {
 			Name: "single failure",
 			Error: deppy.NotSatisfiable{
 				deppy.AppliedConstraint{
-					Variable:   variable("a", constraints.Mandatory()),
-					Constraint: constraints.Mandatory(),
+					Variable:   variable("a", constraints.Mandatory("a")),
+					Constraint: constraints.Mandatory("a"),
 				},
 			},
 			String: fmt.Sprintf("constraints not satisfiable: %s",
-				constraints.Mandatory().String("a")),
+				constraints.Mandatory("a").String("a")),
 		},
 		{
 			Name: "multiple failures",
 			Error: deppy.NotSatisfiable{
 				deppy.AppliedConstraint{
-					Variable:   variable("a", constraints.Mandatory()),
-					Constraint: constraints.Mandatory(),
+					Variable:   variable("a", constraints.Mandatory("a")),
+					Constraint: constraints.Mandatory("a"),
 				},
 				deppy.AppliedConstraint{
-					Variable:   variable("b", constraints.Prohibited()),
-					Constraint: constraints.Prohibited(),
+					Variable:   variable("b", constraints.Prohibited("p")),
+					Constraint: constraints.Prohibited("p"),
 				},
 			},
 			String: fmt.Sprintf("constraints not satisfiable: %s, %s",
-				constraints.Mandatory().String("a"), constraints.Prohibited().String("b")),
+				constraints.Mandatory("a").String("a"), constraints.Prohibited("p").String("b")),
 		},
 	} {
 		t.Run(tt.Name, func(t *testing.T) {
@@ -128,20 +133,20 @@ func TestSolve(t *testing.T) {
 		},
 		{
 			Name:      "single mandatory variable is installed",
-			Variables: []deppy.Variable{variable("a", constraints.Mandatory())},
+			Variables: []deppy.Variable{variable("a", constraints.Mandatory("a"))},
 			Installed: []deppy.Identifier{"a"},
 		},
 		{
 			Name:      "both mandatory and prohibited produce error",
-			Variables: []deppy.Variable{variable("a", constraints.Mandatory(), constraints.Prohibited())},
+			Variables: []deppy.Variable{variable("a", constraints.Mandatory("a"), constraints.Prohibited("p"))},
 			Error: deppy.NotSatisfiable{
 				{
-					Variable:   variable("a", constraints.Mandatory(), constraints.Prohibited()),
-					Constraint: constraints.Mandatory(),
+					Variable:   variable("a", constraints.Mandatory("a"), constraints.Prohibited("p")),
+					Constraint: constraints.Mandatory("a"),
 				},
 				{
-					Variable:   variable("a", constraints.Mandatory(), constraints.Prohibited()),
-					Constraint: constraints.Prohibited(),
+					Variable:   variable("a", constraints.Mandatory("a"), constraints.Prohibited("p")),
+					Constraint: constraints.Prohibited("p"),
 				},
 			},
 		},
@@ -149,7 +154,7 @@ func TestSolve(t *testing.T) {
 			Name: "dependency is installed",
 			Variables: []deppy.Variable{
 				variable("a"),
-				variable("b", constraints.Mandatory(), constraints.Dependency("a")),
+				variable("b", constraints.Mandatory("a"), constraints.Dependency("dcid", "a")),
 			},
 			Installed: []deppy.Identifier{"a", "b"},
 		},
@@ -157,8 +162,8 @@ func TestSolve(t *testing.T) {
 			Name: "transitive dependency is installed",
 			Variables: []deppy.Variable{
 				variable("a"),
-				variable("b", constraints.Dependency("a")),
-				variable("c", constraints.Mandatory(), constraints.Dependency("b")),
+				variable("b", constraints.Dependency("dcid", "a")),
+				variable("c", constraints.Mandatory("a"), constraints.Dependency("dcid", "b")),
 			},
 			Installed: []deppy.Identifier{"a", "b", "c"},
 		},
@@ -167,7 +172,7 @@ func TestSolve(t *testing.T) {
 			Variables: []deppy.Variable{
 				variable("a"),
 				variable("b"),
-				variable("c", constraints.Mandatory(), constraints.Dependency("a"), constraints.Dependency("b")),
+				variable("c", constraints.Mandatory("a"), constraints.Dependency("dcid", "a"), constraints.Dependency("dcid", "b")),
 			},
 			Installed: []deppy.Identifier{"a", "b", "c"},
 		},
@@ -175,8 +180,8 @@ func TestSolve(t *testing.T) {
 			Name: "solution with first dependency is selected",
 			Variables: []deppy.Variable{
 				variable("a"),
-				variable("b", constraints.Conflict("a")),
-				variable("c", constraints.Mandatory(), constraints.Dependency("a", "b")),
+				variable("b", constraints.Conflict("cid", "a")),
+				variable("c", constraints.Mandatory("a"), constraints.Dependency("dcid", "a", "b")),
 			},
 			Installed: []deppy.Identifier{"a", "c"},
 		},
@@ -185,7 +190,7 @@ func TestSolve(t *testing.T) {
 			Variables: []deppy.Variable{
 				variable("a"),
 				variable("b"),
-				variable("c", constraints.Mandatory(), constraints.Dependency("a", "b")),
+				variable("c", constraints.Mandatory("a"), constraints.Dependency("dcid", "a", "b")),
 			},
 			Installed: []deppy.Identifier{"a", "c"},
 		},
@@ -193,37 +198,37 @@ func TestSolve(t *testing.T) {
 			Name: "solution with first dependency is selected (reverse)",
 			Variables: []deppy.Variable{
 				variable("a"),
-				variable("b", constraints.Conflict("a")),
-				variable("c", constraints.Mandatory(), constraints.Dependency("b", "a")),
+				variable("b", constraints.Conflict("cid", "a")),
+				variable("c", constraints.Mandatory("a"), constraints.Dependency("dcid", "b", "a")),
 			},
 			Installed: []deppy.Identifier{"b", "c"},
 		},
 		{
 			Name: "two mandatory but conflicting packages",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Mandatory()),
-				variable("b", constraints.Mandatory(), constraints.Conflict("a")),
+				variable("a", constraints.Mandatory("a")),
+				variable("b", constraints.Mandatory("a"), constraints.Conflict("cid", "a")),
 			},
 			Error: deppy.NotSatisfiable{
 				{
-					Variable:   variable("a", constraints.Mandatory()),
-					Constraint: constraints.Mandatory(),
+					Variable:   variable("a", constraints.Mandatory("a")),
+					Constraint: constraints.Mandatory("a"),
 				},
 				{
-					Variable:   variable("b", constraints.Mandatory(), constraints.Conflict("a")),
-					Constraint: constraints.Mandatory(),
+					Variable:   variable("b", constraints.Mandatory("a"), constraints.Conflict("cid", "a")),
+					Constraint: constraints.Mandatory("a"),
 				},
 				{
-					Variable:   variable("b", constraints.Mandatory(), constraints.Conflict("a")),
-					Constraint: constraints.Conflict("a"),
+					Variable:   variable("b", constraints.Mandatory("a"), constraints.Conflict("cid", "a")),
+					Constraint: constraints.Conflict("cid", "a"),
 				},
 			},
 		},
 		{
 			Name: "irrelevant dependencies don't influence search Order",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Dependency("x", "y")),
-				variable("b", constraints.Mandatory(), constraints.Dependency("y", "x")),
+				variable("a", constraints.Dependency("dcid", "x", "y")),
+				variable("b", constraints.Mandatory("a"), constraints.Dependency("dcid", "y", "x")),
 				variable("x"),
 				variable("y"),
 			},
@@ -232,30 +237,30 @@ func TestSolve(t *testing.T) {
 		{
 			Name: "cardinality constraint prevents resolution",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Mandatory(), constraints.Dependency("x", "y"), constraints.AtMost(1, "x", "y")),
-				variable("x", constraints.Mandatory()),
-				variable("y", constraints.Mandatory()),
+				variable("a", constraints.Mandatory("a"), constraints.Dependency("dcid", "x", "y"), constraints.AtMost("acid", 1, "x", "y")),
+				variable("x", constraints.Mandatory("a")),
+				variable("y", constraints.Mandatory("a")),
 			},
 			Error: deppy.NotSatisfiable{
 				{
-					Variable:   variable("a", constraints.Mandatory(), constraints.Dependency("x", "y"), constraints.AtMost(1, "x", "y")),
-					Constraint: constraints.AtMost(1, "x", "y"),
+					Variable:   variable("a", constraints.Mandatory("a"), constraints.Dependency("dcid", "x", "y"), constraints.AtMost("acid", 1, "x", "y")),
+					Constraint: constraints.AtMost("acid", 1, "x", "y"),
 				},
 				{
-					Variable:   variable("x", constraints.Mandatory()),
-					Constraint: constraints.Mandatory(),
+					Variable:   variable("x", constraints.Mandatory("a")),
+					Constraint: constraints.Mandatory("a"),
 				},
 				{
-					Variable:   variable("y", constraints.Mandatory()),
-					Constraint: constraints.Mandatory(),
+					Variable:   variable("y", constraints.Mandatory("a")),
+					Constraint: constraints.Mandatory("a"),
 				},
 			},
 		},
 		{
 			Name: "cardinality constraint forces alternative",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Mandatory(), constraints.Dependency("x", "y"), constraints.AtMost(1, "x", "y")),
-				variable("b", constraints.Mandatory(), constraints.Dependency("y")),
+				variable("a", constraints.Mandatory("a"), constraints.Dependency("dcid", "x", "y"), constraints.AtMost("acid", 1, "x", "y")),
+				variable("b", constraints.Mandatory("a"), constraints.Dependency("dcid", "y")),
 				variable("x"),
 				variable("y"),
 			},
@@ -264,8 +269,8 @@ func TestSolve(t *testing.T) {
 		{
 			Name: "foo two dependencies satisfied by one variable",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Mandatory(), constraints.Dependency("y", "z", "m")),
-				variable("b", constraints.Mandatory(), constraints.Dependency("x", "y")),
+				variable("a", constraints.Mandatory("a"), constraints.Dependency("dcid", "y", "z", "m")),
+				variable("b", constraints.Mandatory("a"), constraints.Dependency("dcid", "x", "y")),
 				variable("x"),
 				variable("y"),
 				variable("z"),
@@ -276,8 +281,8 @@ func TestSolve(t *testing.T) {
 		{
 			Name: "result size larger than minimum due to preference",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Mandatory(), constraints.Dependency("x", "y")),
-				variable("b", constraints.Mandatory(), constraints.Dependency("y")),
+				variable("a", constraints.Mandatory("a"), constraints.Dependency("dcid", "x", "y")),
+				variable("b", constraints.Mandatory("a"), constraints.Dependency("dcid", "y")),
 				variable("x"),
 				variable("y"),
 			},
@@ -286,13 +291,13 @@ func TestSolve(t *testing.T) {
 		{
 			Name: "only the least preferable choice is acceptable",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Mandatory(), constraints.Dependency("a1", "a2")),
-				variable("a1", constraints.Conflict("c1"), constraints.Conflict("c2")),
-				variable("a2", constraints.Conflict("c1")),
-				variable("b", constraints.Mandatory(), constraints.Dependency("b1", "b2")),
-				variable("b1", constraints.Conflict("c1"), constraints.Conflict("c2")),
-				variable("b2", constraints.Conflict("c1")),
-				variable("c", constraints.Mandatory(), constraints.Dependency("c1", "c2")),
+				variable("a", constraints.Mandatory("a"), constraints.Dependency("dcid", "a1", "a2")),
+				variable("a1", constraints.Conflict("cid", "c1"), constraints.Conflict("cid", "c2")),
+				variable("a2", constraints.Conflict("cid", "c1")),
+				variable("b", constraints.Mandatory("a"), constraints.Dependency("dcid", "b1", "b2")),
+				variable("b1", constraints.Conflict("cid", "c1"), constraints.Conflict("cid", "c2")),
+				variable("b2", constraints.Conflict("cid", "c1")),
+				variable("c", constraints.Mandatory("a"), constraints.Dependency("dcid", "c1", "c2")),
 				variable("c1"),
 				variable("c2"),
 			},
@@ -301,7 +306,7 @@ func TestSolve(t *testing.T) {
 		{
 			Name: "preferences respected with multiple dependencies per variable",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Mandatory(), constraints.Dependency("x1", "x2"), constraints.Dependency("y1", "y2")),
+				variable("a", constraints.Mandatory("a"), constraints.Dependency("dcid", "x1", "x2"), constraints.Dependency("dcid", "y1", "y2")),
 				variable("x1"),
 				variable("x2"),
 				variable("y1"),

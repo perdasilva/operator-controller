@@ -2,13 +2,16 @@ package resolution
 
 import (
 	"context"
+	"github.com/google/uuid"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/resolution"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/resolver"
+	"github.com/operator-framework/operator-controller/internal/resolution/variable_sources"
 
 	"github.com/operator-framework/deppy/pkg/deppy/input"
-	"github.com/operator-framework/deppy/pkg/deppy/solver"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/operator-framework/operator-controller/api/v1alpha1"
-	"github.com/operator-framework/operator-controller/internal/resolution/variable_sources/olm"
 )
 
 type OperatorResolver struct {
@@ -23,24 +26,29 @@ func NewOperatorResolver(client client.Client, entitySource input.EntitySource) 
 	}
 }
 
-func (o *OperatorResolver) Resolve(ctx context.Context) (*solver.Solution, error) {
+func (o *OperatorResolver) Resolve(ctx context.Context) (*resolver.Solution, error) {
 	operatorList := v1alpha1.OperatorList{}
 	if err := o.client.List(ctx, &operatorList); err != nil {
 		return nil, err
 	}
 	if len(operatorList.Items) == 0 {
-		return &solver.Solution{}, nil
+		return &resolver.Solution{}, nil
 	}
 
-	olmVariableSource := olm.NewOLMVariableSource(operatorList.Items...)
-	deppySolver, err := solver.NewDeppySolver(o.entitySource, olmVariableSource)
+	problem, err := resolution.NewResolutionProblemBuilder(deppy.Identifierf(uuid.New().String())).
+		WithVariableSources(
+			variable_sources.NewRequiredPackages(operatorList.Items),
+			variable_sources.NewRequiredPackageBundles(o.entitySource),
+			variable_sources.NewBundlePackageDependenciesSource(o.entitySource),
+			variable_sources.NewBundleGVKDependenciesSource(o.entitySource),
+			variable_sources.NewPackageUniqueness(),
+			variable_sources.NewGVKUniqueness(),
+		).
+		Build(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	solution, err := deppySolver.Solve(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return solution, nil
+	olmResolver := resolver.NewDeppyResolver()
+	return olmResolver.Solve(ctx, problem)
 }

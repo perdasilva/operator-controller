@@ -19,8 +19,9 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/resolver"
+	"github.com/operator-framework/operator-controller/internal/resolution/variable_sources"
 
-	"github.com/operator-framework/deppy/pkg/deppy/solver"
 	rukpakv1alpha1 "github.com/operator-framework/rukpak/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -38,8 +39,6 @@ import (
 
 	operatorsv1alpha1 "github.com/operator-framework/operator-controller/api/v1alpha1"
 	"github.com/operator-framework/operator-controller/internal/resolution"
-	"github.com/operator-framework/operator-controller/internal/resolution/variable_sources/bundles_and_dependencies"
-	"github.com/operator-framework/operator-controller/internal/resolution/variable_sources/entity"
 )
 
 // OperatorReconciler reconciles a Operator object
@@ -130,7 +129,7 @@ func (r *OperatorReconciler) reconcile(ctx context.Context, op *operatorsv1alpha
 
 	// lookup the bundle entity in the solution that corresponds to the
 	// Operator's desired package name.
-	bundleEntity, err := r.getBundleEntityFromSolution(solution, op.Spec.PackageName)
+	bundleImage, err := r.getBundleEntityFromSolution(solution, op.Spec.PackageName)
 	if err != nil {
 		apimeta.SetStatusCondition(&op.Status.Conditions, metav1.Condition{
 			Type:               operatorsv1alpha1.TypeReady,
@@ -143,7 +142,6 @@ func (r *OperatorReconciler) reconcile(ctx context.Context, op *operatorsv1alpha
 	}
 
 	// Get the bundle image reference for the bundle
-	bundleImage, err := bundleEntity.BundlePath()
 	if err != nil {
 		apimeta.SetStatusCondition(&op.Status.Conditions, metav1.Condition{
 			Type:               operatorsv1alpha1.TypeReady,
@@ -187,20 +185,19 @@ func (r *OperatorReconciler) reconcile(ctx context.Context, op *operatorsv1alpha
 	return ctrl.Result{}, nil
 }
 
-func (r *OperatorReconciler) getBundleEntityFromSolution(solution *solver.Solution, packageName string) (*entity.BundleEntity, error) {
+func (r *OperatorReconciler) getBundleEntityFromSolution(solution *resolver.Solution, packageName string) (string, error) {
 	for _, variable := range solution.SelectedVariables() {
-		switch v := variable.(type) {
-		case *bundles_and_dependencies.BundleVariable:
-			entityPkgName, err := v.BundleEntity().PackageName()
-			if err != nil {
-				return nil, err
-			}
-			if packageName == entityPkgName {
-				return v.BundleEntity(), nil
+		if variable.Kind() == variable_sources.VariableTypeBundle {
+			name, _ := variable.GetProperty("olm.package.name")
+			if packageName == name {
+				if bundlePath, ok := variable.GetProperty("olm.bundle.path"); ok {
+					return bundlePath.(string), nil
+				}
+				return "", fmt.Errorf("bundle path not found for package %q", packageName)
 			}
 		}
 	}
-	return nil, fmt.Errorf("entity for package %q not found in solution", packageName)
+	return "", fmt.Errorf("entity for package %q not found in solution", packageName)
 }
 
 func (r *OperatorReconciler) generateExpectedBundleDeployment(o operatorsv1alpha1.Operator, bundlePath string) *unstructured.Unstructured {

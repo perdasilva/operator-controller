@@ -2,12 +2,11 @@ package utils_test
 
 import (
 	"encoding/json"
+	. "github.com/operator-framework/operator-controller/internal/resolution/deppy/utils"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"strings"
 	"testing"
-
-	. "github.com/perdasilva/replee/pkg/deppy/utils"
 )
 
 func TestActivationVariable(t *testing.T) {
@@ -15,7 +14,7 @@ func TestActivationVariable(t *testing.T) {
 		name               string
 		description        string
 		value              string
-		action             func(*ActivationValue[string])
+		action             func(value *ActivationValue[string])
 		expectedActivation bool
 	}{
 		{

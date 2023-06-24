@@ -3,9 +3,9 @@ package variables
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/perdasilva/replee/pkg/deppy"
-	"github.com/perdasilva/replee/pkg/deppy/constraints"
-	"github.com/perdasilva/replee/pkg/deppy/utils"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/constraints"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/utils"
 	"reflect"
 	"sync"
 )
@@ -28,18 +28,28 @@ func (v *MutableVariable) GetConstraintIDs() []deppy.Identifier {
 	return v.constraints.Keys()
 }
 
-func (v *MutableVariable) Merge(other deppy.Variable) error {
+func (v *MutableVariable) Merge(other deppy.Variable) (bool, error) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 
 	if v.Kind() != other.Kind() {
-		return deppy.ConflictErrorf("variable %s is not of kind %s", other.Identifier(), v.Kind())
+		return false, deppy.ConflictErrorf("variable %s is not of kind %s", other.Identifier(), v.Kind())
+	}
+
+	if v.Identifier() != other.Identifier() {
+		return false, deppy.ConflictErrorf("variable ids do not match: %s != %s", v.Identifier(), other.Identifier())
 	}
 
 	// merge properties
+	changed := false
 	for key, value := range other.GetProperties() {
-		if err := v.setProperty(key, value); err != nil {
-			return err
+		if val, ok := v.properties[key]; !ok {
+			if err := v.setProperty(key, value); err != nil {
+				return false, err
+			}
+			changed = true
+		} else if !reflect.DeepEqual(val, value) {
+			return false, deppy.ConflictErrorf("property %s already set to %v", key, val)
 		}
 	}
 
@@ -51,19 +61,22 @@ func (v *MutableVariable) Merge(other deppy.Variable) error {
 			if isActivated, err := other.IsActivated(constraintID); !isActivated && err == nil {
 				v.constraints.Deactivate(constraintID)
 			}
+			changed = true
 		} else {
 			c, _ := v.GetConstraint(constraintID)
 			if mc, ok := c.(deppy.MutableConstraint); ok {
-				if err := mc.Merge(oc); err != nil {
-					return err
+				if ok, err := mc.Merge(oc); err != nil {
+					return false, err
+				} else {
+					changed = changed || ok
 				}
 			} else {
-				return deppy.ConflictErrorf("merge error: constraint %s is not mutable", constraintID)
+				return false, deppy.ConflictErrorf("merge error: constraint %s is not mutable", constraintID)
 			}
 		}
 	}
 
-	return nil
+	return changed, nil
 }
 
 func NewMutableVariable(variableID deppy.Identifier, kind string, properties map[string]interface{}) deppy.MutableVariable {

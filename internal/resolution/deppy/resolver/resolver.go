@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/perdasilva/replee/pkg/deppy"
-	"github.com/perdasilva/replee/pkg/deppy/solver"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/solver"
 )
 
 // Solution is returned by the Solver when the internal solver executed successfully.

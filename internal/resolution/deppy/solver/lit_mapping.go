@@ -2,7 +2,8 @@ package solver
 
 import (
 	"fmt"
-	"github.com/perdasilva/replee/pkg/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+
 	"strings"
 
 	"github.com/go-air/gini/inter"

@@ -83,7 +83,7 @@ type MutableVariable interface {
 	Variable
 	SetProperty(key string, value interface{}) error
 	GetProperties() map[string]interface{}
-	Merge(other Variable) error
+	Merge(other Variable) (bool, error)
 	AddMandatory(constraintID Identifier) error
 	RemoveMandatory(constraintID Identifier) error
 	AddProhibited(constraintID Identifier) error
@@ -132,7 +132,7 @@ type Constraint interface {
 
 type MutableConstraint interface {
 	Constraint
-	Merge(other Constraint) error
+	Merge(other Constraint) (bool, error)
 	SetProperty(key string, value interface{}) error
 }
 
@@ -170,7 +170,7 @@ type VarFilterFn func(v Variable) bool
 type VariableSource interface {
 	VariableSourceID() Identifier
 	VariableFilterFunc() VarFilterFn
-	Update(ctx context.Context, resolution MutableResolutionProblem, nextVariable Variable) error
+	Update(ctx context.Context, resolution MutableResolutionProblem, nextVariable MutableVariable) error
 	Finalize(ctx context.Context, resolution MutableResolutionProblem) error
 }
 

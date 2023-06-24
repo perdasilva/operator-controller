@@ -2,7 +2,7 @@ package solver
 
 import (
 	"github.com/go-air/gini/z"
-	"github.com/perdasilva/replee/pkg/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
 )
 
 // zeroConstraint is returned by ConstraintOf in error cases.

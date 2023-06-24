@@ -2,11 +2,11 @@ package variable_sources
 
 import (
 	"context"
-	"github.com/perdasilva/replee/pkg/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
 )
 
 type VariableSourceBuilder interface {
-	WithUpdateFn(updateFunc func(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.Variable) error) VariableSourceBuilder
+	WithUpdateFn(updateFunc func(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.MutableVariable) error) VariableSourceBuilder
 	WithFinalizeFn(finalizeFunc func(ctx context.Context, problem deppy.MutableResolutionProblem) error) VariableSourceBuilder
 	WithVariableFilterFn(variableSourceFilterFn deppy.VarFilterFn) VariableSourceBuilder
 	Build(ctx context.Context) deppy.VariableSource
@@ -22,12 +22,12 @@ var _ deppy.VariableSource = &variableSourceBuilder{}
 
 type variableSourceBuilder struct {
 	variableSourceID       deppy.Identifier
-	updateFunc             func(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.Variable) error
+	updateFunc             func(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.MutableVariable) error
 	finalizeFunc           func(ctx context.Context, problem deppy.MutableResolutionProblem) error
 	variableSourceFilterFn deppy.VarFilterFn
 }
 
-func (v *variableSourceBuilder) WithUpdateFn(updateFunc func(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.Variable) error) VariableSourceBuilder {
+func (v *variableSourceBuilder) WithUpdateFn(updateFunc func(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.MutableVariable) error) VariableSourceBuilder {
 	v.updateFunc = updateFunc
 	return v
 }
@@ -54,7 +54,7 @@ func (v *variableSourceBuilder) VariableFilterFunc() deppy.VarFilterFn {
 	return v.variableSourceFilterFn
 }
 
-func (v *variableSourceBuilder) Update(ctx context.Context, resolution deppy.MutableResolutionProblem, nextVariable deppy.Variable) error {
+func (v *variableSourceBuilder) Update(ctx context.Context, resolution deppy.MutableResolutionProblem, nextVariable deppy.MutableVariable) error {
 	if v.updateFunc == nil {
 		panic("updateFunc is nil")
 	}

@@ -82,8 +82,8 @@ var _ = Describe("OperatorResolver", func() {
 
 		Expect(solution.IsSelected("operatorhub/packageA/2.0.0")).To(BeTrue())
 		Expect(solution.IsSelected("operatorhub/prometheus/0.47.0")).To(BeTrue())
-		Expect(solution.IsSelected("required package packageA")).To(BeTrue())
-		Expect(solution.IsSelected("required package prometheus")).To(BeTrue())
+		Expect(solution.IsSelected("required-package/packageA")).To(BeTrue())
+		Expect(solution.IsSelected("required-package/prometheus")).To(BeTrue())
 
 		Expect(solution.IsSelected("operatorhub/prometheus/0.37.0")).To(BeFalse())
 
@@ -130,8 +130,8 @@ var _ input.EntitySource = &FailEntitySource{}
 
 type FailEntitySource struct{}
 
-func (f FailEntitySource) Get(ctx context.Context, id deppy.Identifier) *input.Entity {
-	return nil
+func (f FailEntitySource) Get(ctx context.Context, id deppy.Identifier) (*input.Entity, error) {
+	return nil, nil
 }
 
 func (f FailEntitySource) Filter(ctx context.Context, filter input.Predicate) (input.EntityList, error) {

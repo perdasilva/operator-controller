@@ -4,8 +4,8 @@ package solver
 
 import (
 	"context"
-	"github.com/perdasilva/replee/pkg/deppy"
-	"github.com/perdasilva/replee/pkg/deppy/constraints"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/constraints"
 	"testing"
 
 	"github.com/go-air/gini/inter"
@@ -44,8 +44,8 @@ func TestSearch(t *testing.T) {
 		{
 			Name: "children popped from back of deque when guess popped",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Mandatory(), constraints.Dependency("c")),
-				variable("b", constraints.Mandatory()),
+				variable("a", constraints.Mandatory("a"), constraints.Dependency("dcid", "c")),
+				variable("b", constraints.Mandatory("a")),
 				variable("c"),
 			},
 			TestReturns:   []int{0, -1},
@@ -56,8 +56,8 @@ func TestSearch(t *testing.T) {
 		{
 			Name: "candidates exhausted",
 			Variables: []deppy.Variable{
-				variable("a", constraints.Mandatory(), constraints.Dependency("x")),
-				variable("b", constraints.Mandatory(), constraints.Dependency("y")),
+				variable("a", constraints.Mandatory("a"), constraints.Dependency("dcid", "x")),
+				variable("b", constraints.Mandatory("a"), constraints.Dependency("dcid", "y")),
 				variable("x"),
 				variable("y"),
 			},

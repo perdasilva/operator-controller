@@ -13,23 +13,23 @@ import (
 	catalogd "github.com/operator-framework/catalogd/pkg/apis/core/v1beta1"
 )
 
-// catalogdEntitySource is a source for(/collection of) deppy defined input.Entity, built from content
+// CatalogdEntitySource is a source for(/collection of) deppy defined input.Entity, built from content
 // made accessible on-cluster by https://github.com/operator-framework/catalogd.
 // It is an implementation of deppy defined input.EntitySource
-type catalogdEntitySource struct {
+type CatalogdEntitySource struct {
 	client client.Client
 }
 
-func NewCatalogdEntitySource(client client.Client) *catalogdEntitySource {
+func NewCatalogdEntitySource(client client.Client) *CatalogdEntitySource {
 
-	return &catalogdEntitySource{client: client}
+	return &CatalogdEntitySource{client: client}
 }
 
-func (es *catalogdEntitySource) Get(ctx context.Context, id deppy.Identifier) *input.Entity {
+func (es *CatalogdEntitySource) Get(ctx context.Context, id deppy.Identifier) (*input.Entity, error) {
 	panic("not implemented")
 }
 
-func (es *catalogdEntitySource) Filter(ctx context.Context, filter input.Predicate) (input.EntityList, error) {
+func (es *CatalogdEntitySource) Filter(ctx context.Context, filter input.Predicate) (input.EntityList, error) {
 	resultSet := input.EntityList{}
 	entities, err := getEntities(ctx, es.client)
 	if err != nil {
@@ -43,7 +43,7 @@ func (es *catalogdEntitySource) Filter(ctx context.Context, filter input.Predica
 	return resultSet, nil
 }
 
-func (es *catalogdEntitySource) GroupBy(ctx context.Context, fn input.GroupByFunction) (input.EntityListMap, error) {
+func (es *CatalogdEntitySource) GroupBy(ctx context.Context, fn input.GroupByFunction) (input.EntityListMap, error) {
 	entities, err := getEntities(ctx, es.client)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,7 @@ func (es *catalogdEntitySource) GroupBy(ctx context.Context, fn input.GroupByFun
 	return resultSet, nil
 }
 
-func (es *catalogdEntitySource) Iterate(ctx context.Context, fn input.IteratorFunction) error {
+func (es *CatalogdEntitySource) Iterate(ctx context.Context, fn input.IteratorFunction) error {
 	entities, err := getEntities(ctx, es.client)
 	if err != nil {
 		return err

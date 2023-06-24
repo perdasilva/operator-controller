@@ -2,7 +2,9 @@ package utils
 
 import (
 	"encoding/json"
-	"github.com/perdasilva/replee/pkg/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+	"github.com/wk8/go-ordered-map/v2"
+	"reflect"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -17,6 +19,21 @@ func NewActivationVariable[T any](value T) *ActivationValue[T] {
 	return &ActivationValue[T]{
 		value: value,
 		count: 1, // values start activated
+	}
+}
+
+func (a *ActivationValue[T]) Merge(other *ActivationValue[T]) (bool, error) {
+	if reflect.DeepEqual(a.Value(), other.Value()) {
+		if a.IsActivated() == other.IsActivated() {
+			return false, nil
+		} else if a.IsActivated() {
+			a.Deactivate()
+		} else {
+			a.Activate()
+		}
+		return true, nil
+	} else {
+		return false, deppy.ConflictErrorf("merge conflict: values do not match: %v != %v", a.Value(), other.Value())
 	}
 }
 
@@ -71,14 +88,14 @@ func (a *ActivationValue[T]) Deactivate() {
 type SortFn func(a, b int) bool
 
 type ActivationSet[T comparable] struct {
-	values map[T]*ActivationValue[T]
+	values *orderedmap.OrderedMap[T, *ActivationValue[T]]
 	lock   sync.RWMutex
 	sortFn SortFn
 }
 
 func NewActivationSet[T comparable](keys ...T) *ActivationSet[T] {
 	activationSet := &ActivationSet[T]{
-		values: map[T]*ActivationValue[T]{},
+		values: orderedmap.New[T, *ActivationValue[T]](),
 		lock:   sync.RWMutex{},
 	}
 	activationSet.Add(keys...)
@@ -94,24 +111,52 @@ func (a *ActivationSet[T]) Add(keys ...T) {
 }
 
 func (a *ActivationSet[T]) add(key T) {
-	a.values[key] = NewActivationVariable(key)
+	a.values.Set(key, NewActivationVariable(key))
 }
 
 func (a *ActivationSet[T]) Activate(keys ...T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	for _, key := range keys {
-		if _, ok := a.values[key]; !ok {
+		if _, ok := a.values.Get(key); !ok {
 			a.add(key)
 		}
 	}
+}
+
+func (a *ActivationSet[T]) Merge(other *ActivationSet[T]) (bool, error) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	changed := false
+	for pair := other.values.Oldest(); pair != nil; pair = pair.Next() {
+		key := pair.Key
+		otherValue := pair.Value
+
+		if value, ok := a.values.Get(key); ok {
+			if ok, err := value.Merge(otherValue); err != nil {
+				return false, err
+			} else if ok {
+				changed = true
+			}
+		} else {
+			a.add(key)
+			if !otherValue.IsActivated() {
+				if value, ok := a.values.Get(key); ok {
+					value.Deactivate()
+				}
+			}
+			changed = true
+		}
+	}
+	return changed, nil
 }
 
 func (a *ActivationSet[T]) IsActivated(key T) (bool, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 	if a.Has(key) {
-		return a.values[key].IsActivated(), nil
+		value, _ := a.values.Get(key)
+		return value.IsActivated(), nil
 	}
 	return false, deppy.NotFoundErrorf("key not found")
 }
@@ -120,10 +165,11 @@ func (a *ActivationSet[T]) Deactivate(keys ...T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	for _, key := range keys {
-		if _, ok := a.values[key]; !ok {
+		if _, ok := a.values.Get(key); !ok {
 			a.add(key)
 		}
-		a.values[key].Deactivate()
+		value, _ := a.values.Get(key)
+		value.Deactivate()
 	}
 }
 
@@ -131,9 +177,11 @@ func (a *ActivationSet[T]) Elements() []T {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 	var elements []T
-	for _, value := range a.values {
+	for pair := a.values.Oldest(); pair != nil; pair = pair.Next() {
+		key := pair.Key
+		value := pair.Value
 		if value.IsActivated() {
-			elements = append(elements, value.Value())
+			elements = append(elements, key)
 		}
 	}
 
@@ -146,14 +194,14 @@ func (a *ActivationSet[T]) Elements() []T {
 func (a *ActivationSet[T]) Has(key T) bool {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
-	_, ok := a.values[key]
+	_, ok := a.values.Get(key)
 	return ok
 }
 
 func (a *ActivationSet[T]) MarshalJSON() ([]byte, error) {
-	out := make(map[T]bool, len(a.values))
-	for _, value := range a.values {
-		out[value.Value()] = value.IsActivated()
+	out := make(map[T]bool, a.values.Len())
+	for pair := a.values.Oldest(); pair != nil; pair = pair.Next() {
+		out[pair.Value.Value()] = pair.Value.IsActivated()
 	}
 	return json.Marshal(out)
 }
@@ -163,7 +211,7 @@ func (a *ActivationSet[T]) UnmarshalJSON(jsonBytes []byte) error {
 	if err := json.Unmarshal(jsonBytes, &data); err != nil {
 		return err
 	}
-	a.values = make(map[T]*ActivationValue[T], len(data))
+	a.values = orderedmap.New[T, *ActivationValue[T]]()
 
 	for value, activated := range data {
 		a.Add(value)
@@ -222,6 +270,28 @@ func (a *ActivationMap[K, V]) Elements() []V {
 		sort.SliceStable(elements, a.sortFn)
 	}
 	return elements
+}
+
+func (a *ActivationMap[K, V]) Merge(other *ActivationMap[K, V]) (bool, error) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	changed := false
+	for key, otherValue := range other.values {
+		if value, ok := a.values[key]; ok {
+			if ok, err := value.Merge(otherValue); err != nil {
+				return false, err
+			} else if ok {
+				changed = true
+			}
+		} else {
+			a.Put(key, otherValue.Value())
+			if !otherValue.IsActivated() {
+				a.values[key].Deactivate()
+			}
+			changed = true
+		}
+	}
+	return changed, nil
 }
 
 func (a *ActivationMap[K, V]) Keys() []K {

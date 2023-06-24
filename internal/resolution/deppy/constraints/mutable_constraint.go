@@ -3,7 +3,8 @@ package constraints
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/perdasilva/replee/pkg/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+	"reflect"
 	"sync"
 )
 
@@ -22,13 +23,27 @@ func (m *MutableConstraintBase) Kind() string {
 	return m.kind
 }
 
-func (m *MutableConstraintBase) Merge(other deppy.Constraint) error {
+func (m *MutableConstraintBase) Merge(other deppy.Constraint) (bool, error) {
+	if m.ConstraintID() != other.ConstraintID() {
+		return false, deppy.ConflictErrorf("merge conflict: constraint ids do not match: %s != %s", m.ConstraintID(), other.ConstraintID())
+	}
+	if m.Kind() != other.Kind() {
+		return false, deppy.ConflictErrorf("merge conflict: constraint kinds do not match: %s != %s", m.Kind(), other.Kind())
+	}
+	changed := false
 	for key, value := range other.GetProperties() {
-		if err := m.setProperty(key, value); err != nil {
-			return err
+		otherValue, ok := other.GetProperty(key)
+		if !ok {
+			if err := m.setProperty(key, value); err != nil {
+				changed = true
+				return false, err
+			}
+		}
+		if !reflect.DeepEqual(value, otherValue) {
+			return false, deppy.ConflictErrorf("merge conflict: property %s already set to %v", key, value)
 		}
 	}
-	return nil
+	return changed, nil
 }
 
 func (m *MutableConstraintBase) String() string {

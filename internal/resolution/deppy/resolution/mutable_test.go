@@ -1,8 +1,8 @@
 package resolution_test
 
 import (
-	"github.com/perdasilva/replee/pkg/deppy/resolution"
-	"github.com/perdasilva/replee/pkg/deppy/variables"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/resolution"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/variables"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

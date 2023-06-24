@@ -2,14 +2,14 @@ package variable_sources
 
 import (
 	"context"
-	"github.com/perdasilva/replee/pkg/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
 )
 
 type FilterableVariableSource struct {
 	deppy.VariableSource
 }
 
-func (f *FilterableVariableSource) Update(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.Variable) error {
+func (f *FilterableVariableSource) Update(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.MutableVariable) error {
 	filter := f.VariableFilterFunc()
 	if (filter == nil && variable == nil) || (filter != nil && filter(variable)) {
 		return f.VariableSource.Update(ctx, problem, variable)
@@ -22,7 +22,7 @@ type AtMostOnceVariableSource struct {
 	successfullyProcessedVars map[deppy.Identifier]struct{}
 }
 
-func (a *AtMostOnceVariableSource) Update(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.Variable) error {
+func (a *AtMostOnceVariableSource) Update(ctx context.Context, problem deppy.MutableResolutionProblem, variable deppy.MutableVariable) error {
 	if a.successfullyProcessedVars == nil {
 		a.successfullyProcessedVars = map[deppy.Identifier]struct{}{}
 	}

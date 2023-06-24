@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-air/gini/z"
-	"github.com/perdasilva/replee/pkg/deppy"
-	"github.com/perdasilva/replee/pkg/deppy/utils"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/utils"
 	"strings"
 	"sync"
 )
@@ -53,14 +53,11 @@ func (constraint *MandatoryConstraint) Anchor() bool {
 	return true
 }
 
-func (constraint *MandatoryConstraint) Merge(other deppy.Constraint) error {
+func (constraint *MandatoryConstraint) Merge(other deppy.Constraint) (bool, error) {
 	if _, ok := other.(*MandatoryConstraint); !ok {
-		return deppy.ConflictErrorf("cannot merge constraints of different kind [%T != %T]", constraint, other)
+		return false, deppy.ConflictErrorf("cannot merge constraints of different kind [%T != %T]", constraint, other)
 	}
-	if err := constraint.MutableConstraintBase.Merge(other); err != nil {
-		return err
-	}
-	return nil
+	return constraint.MutableConstraintBase.Merge(other)
 }
 
 var _ deppy.Constraint = &ProhibitedConstraint{}
@@ -80,14 +77,11 @@ func Prohibited(constraintID deppy.Identifier) *ProhibitedConstraint {
 	}
 }
 
-func (constraint *ProhibitedConstraint) Merge(other deppy.Constraint) error {
+func (constraint *ProhibitedConstraint) Merge(other deppy.Constraint) (bool, error) {
 	if _, ok := other.(*ProhibitedConstraint); !ok {
-		return deppy.ConflictErrorf("cannot merge constraints of different kind [%T != %T]", constraint, other)
+		return false, deppy.ConflictErrorf("cannot merge constraints of different kind [%T != %T]", constraint, other)
 	}
-	if err := constraint.MutableConstraintBase.Merge(other); err != nil {
-		return err
-	}
-	return nil
+	return constraint.MutableConstraintBase.Merge(other)
 }
 
 func (constraint *ProhibitedConstraint) String(subject deppy.Identifier) string {
@@ -126,17 +120,17 @@ func Conflict(constraintID deppy.Identifier, conflict deppy.Identifier) *Conflic
 	}
 }
 
-func (constraint *ConflictConstraint) Merge(other deppy.Constraint) error {
+func (constraint *ConflictConstraint) Merge(other deppy.Constraint) (bool, error) {
 	if cc, ok := other.(*ConflictConstraint); ok {
 		if cc.conflictingVariableID != constraint.conflictingVariableID {
-			return deppy.ConflictErrorf("cannot merge constraints with different conflicting variable [%s != %s]", constraint.conflictingVariableID, cc.conflictingVariableID)
+			return false, deppy.ConflictErrorf("cannot merge constraints with different conflicting variable [%s != %s]", constraint.conflictingVariableID, cc.conflictingVariableID)
 		}
-		return nil
 	}
-	if err := constraint.MutableConstraintBase.Merge(other); err != nil {
-		return err
+	if constraint.conflictingVariableID != other.(*ConflictConstraint).conflictingVariableID {
+		return false, deppy.ConflictErrorf("cannot merge constraints with different conflicting variable [%s != %s]", constraint.conflictingVariableID, other.(*ConflictConstraint).conflictingVariableID)
 	}
-	return deppy.ConflictErrorf("cannot merge constraints of different kind [%T != %T]", constraint, other)
+
+	return constraint.MutableConstraintBase.Merge(other)
 }
 
 func (constraint *ConflictConstraint) String(subject deppy.Identifier) string {
@@ -215,23 +209,25 @@ func Dependency(constraintID deppy.Identifier, dependencies ...deppy.Identifier)
 	return c
 }
 
-func (constraint *DependencyConstraint) Merge(other deppy.Constraint) error {
+func (constraint *DependencyConstraint) Merge(other deppy.Constraint) (bool, error) {
+	changed := false
 	if cc, ok := other.(*DependencyConstraint); ok {
 		if constraint.ActivationSet == nil {
 			constraint.ActivationSet = utils.NewActivationSet[deppy.Identifier]()
 		}
-		for _, element := range cc.Elements() {
-			if active, _ := cc.IsActivated(element); active {
-				constraint.Activate(element)
-			} else {
-				constraint.Deactivate(element)
-			}
+		ok, err := constraint.ActivationSet.Merge(cc.ActivationSet)
+		if err != nil {
+			return false, err
 		}
-		return nil
+		changed = changed || ok
 	} else if !ok {
-		return deppy.ConflictErrorf("cannot merge constraints of different kind [%T != %T]", constraint, other)
+		return false, deppy.ConflictErrorf("cannot merge constraints of different kind [%T != %T]", constraint, other)
 	}
-	return constraint.MutableConstraintBase.Merge(other)
+	ok, err := constraint.MutableConstraintBase.Merge(other)
+	if err != nil {
+		return false, err
+	}
+	return changed || ok, nil
 }
 
 func (constraint *DependencyConstraint) Apply(lm deppy.LitMapping, subject deppy.Identifier) z.Lit {
@@ -316,26 +312,32 @@ func AtMost(constraintID deppy.Identifier, n int, variables ...deppy.Identifier)
 	return c
 }
 
-func (constraint *AtMostConstraint) Merge(other deppy.Constraint) error {
+func (constraint *AtMostConstraint) Merge(other deppy.Constraint) (bool, error) {
+	changed := false
 	if cc, ok := other.(*AtMostConstraint); ok {
-		if constraint.n != -1 && cc.n != -1 && constraint.n != cc.n {
-			return deppy.ConflictErrorf("cannot merge constraints with different n [%d != %d]", constraint.n, cc.n)
+		if constraint.ActivationSet == nil {
+			constraint.ActivationSet = utils.NewActivationSet[deppy.Identifier]()
 		}
-		if constraint.n == -1 {
-			constraint.n = cc.n
+		ok, err := constraint.ActivationSet.Merge(cc.ActivationSet)
+		if err != nil {
+			return false, err
 		}
-		for _, element := range cc.Elements() {
-			if active, _ := cc.IsActivated(element); active {
-				constraint.Activate(element)
-			} else {
-				constraint.Deactivate(element)
-			}
-		}
-		return nil
+		changed = changed || ok
 	} else if !ok {
-		return deppy.ConflictErrorf("cannot merge constraints of different kind [%T != %T]", constraint, other)
+		return false, deppy.ConflictErrorf("cannot merge constraints of different kind [%T != %T]", constraint, other)
 	}
-	return constraint.MutableConstraintBase.Merge(other)
+	if constraint.n != -1 && other.(*AtMostConstraint).n != -1 && constraint.n != other.(*AtMostConstraint).n {
+		return false, deppy.ConflictErrorf("cannot merge constraints with different n [%d != %d]", constraint.n, other.(*AtMostConstraint).n)
+	}
+	if constraint.n == -1 {
+		constraint.n = other.(*AtMostConstraint).n
+		changed = true
+	}
+	ok, err := constraint.MutableConstraintBase.Merge(other)
+	if err != nil {
+		return false, err
+	}
+	return changed || ok, nil
 }
 
 func (constraint *AtMostConstraint) Apply(lm deppy.LitMapping, _ deppy.Identifier) z.Lit {

@@ -2,8 +2,8 @@ package solver
 
 import (
 	"context"
-	"github.com/perdasilva/replee/pkg/deppy"
-	"github.com/perdasilva/replee/pkg/deppy/constraints"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy"
+	"github.com/operator-framework/operator-controller/internal/resolution/deppy/constraints"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -27,7 +27,7 @@ var BenchmarkInput = func() []deppy.Variable {
 	variable := func(i int) TestVariable {
 		var c []deppy.Constraint
 		if rand.Float64() < pMandatory {
-			c = append(c, constraints.Mandatory())
+			c = append(c, constraints.Mandatory("A"))
 		}
 		if rand.Float64() < pDependency {
 			n := rand.Intn(nDependency-1) + 1
@@ -39,7 +39,7 @@ var BenchmarkInput = func() []deppy.Variable {
 				}
 				d = append(d, id(y))
 			}
-			c = append(c, constraints.Dependency(d...))
+			c = append(c, constraints.Dependency("dcid", d...))
 		}
 		if rand.Float64() < pConflict {
 			n := rand.Intn(nConflict-1) + 1
@@ -48,7 +48,7 @@ var BenchmarkInput = func() []deppy.Variable {
 				for y == i {
 					y = rand.Intn(length)
 				}
-				c = append(c, constraints.Conflict(id(y)))
+				c = append(c, constraints.Conflict("cid", id(y)))
 			}
 		}
 		return TestVariable{
