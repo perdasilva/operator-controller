@@ -9,4 +9,5 @@ metadata:
     app.kubernetes.io/created-by: operator-controller
   name: operator-sample
 spec:
-  packageName: argocd-operator
+  packageName: zookeeper-operator
+  version: 0.16.2

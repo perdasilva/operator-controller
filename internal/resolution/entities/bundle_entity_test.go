@@ -205,13 +205,13 @@ var _ = Describe("BundleEntity", func() {
 		})
 	})
 
-	Describe("ChannelProperties", func() {
+	Describe("Channel", func() {
 		It("should return the bundle channel properties if present", func() {
 			entity := input.NewEntity("operatorhub/prometheus/0.14.0", map[string]string{
 				"olm.channel": `{"channelName":"beta","priority":0, "replaces": "bundle.v1.0.0", "skips": ["bundle.v0.9.0", "bundle.v0.9.6"], "skipRange": ">=0.9.0 <=0.9.6"}`,
 			})
 			bundleEntity := olmentity.NewBundleEntity(entity)
-			channelProperties, err := bundleEntity.ChannelProperties()
+			channelProperties, err := bundleEntity.Channel()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*channelProperties).To(Equal(olmentity.ChannelProperties{
 				Channel: property.Channel{
@@ -226,7 +226,7 @@ var _ = Describe("BundleEntity", func() {
 		It("should return an error if the property is not found", func() {
 			entity := input.NewEntity("operatorhub/prometheus/0.14.0", map[string]string{})
 			bundleEntity := olmentity.NewBundleEntity(entity)
-			channelProperties, err := bundleEntity.ChannelProperties()
+			channelProperties, err := bundleEntity.Channel()
 			Expect(channelProperties).To(BeNil())
 			Expect(err.Error()).To(Equal("error determining bundle channel properties for entity 'operatorhub/prometheus/0.14.0': required property 'olm.channel' not found"))
 		})
@@ -235,7 +235,7 @@ var _ = Describe("BundleEntity", func() {
 				"olm.channel": "badChannelPropertiesStructure",
 			})
 			bundleEntity := olmentity.NewBundleEntity(entity)
-			channelProperties, err := bundleEntity.ChannelProperties()
+			channelProperties, err := bundleEntity.Channel()
 			Expect(channelProperties).To(BeNil())
 			Expect(err.Error()).To(Equal("error determining bundle channel properties for entity 'operatorhub/prometheus/0.14.0': property 'olm.channel' ('badChannelPropertiesStructure') could not be parsed: invalid character 'b' looking for beginning of value"))
 		})
