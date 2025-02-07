@@ -41,7 +41,7 @@ type Plain struct {
 	Objects []client.Object
 }
 
-func RegistryV1ToHelmChart(ctx context.Context, rv1 fs.FS, installNamespace string, watchNamespaces []string) (*chart.Chart, error) {
+func BundleFSToRegistryV1(ctx context.Context, rv1 fs.FS) (*RegistryV1, error) {
 	l := log.FromContext(ctx)
 
 	reg := RegistryV1{}
@@ -106,7 +106,14 @@ func RegistryV1ToHelmChart(ctx context.Context, rv1 fs.FS, installNamespace stri
 	if err := copyMetadataPropertiesToCSV(&reg.CSV, rv1); err != nil {
 		return nil, err
 	}
+	return &reg, nil
+}
 
+func RegistryV1ToHelmChart(ctx context.Context, rv1 fs.FS, installNamespace string, watchNamespaces []string) (*chart.Chart, error) {
+	reg, err := BundleFSToRegistryV1(ctx, rv1)
+	if err != nil {
+		return nil, err
+	}
 	return toChart(reg, installNamespace, watchNamespaces)
 }
 
@@ -158,7 +165,7 @@ func copyMetadataPropertiesToCSV(csv *v1alpha1.ClusterServiceVersion, fsys fs.FS
 	return nil
 }
 
-func toChart(in RegistryV1, installNamespace string, watchNamespaces []string) (*chart.Chart, error) {
+func toChart(in *RegistryV1, installNamespace string, watchNamespaces []string) (*chart.Chart, error) {
 	plain, err := Convert(in, installNamespace, watchNamespaces)
 	if err != nil {
 		return nil, err
@@ -211,7 +218,7 @@ func saNameOrDefault(saName string) string {
 	return saName
 }
 
-func Convert(in RegistryV1, installNamespace string, targetNamespaces []string) (*Plain, error) {
+func Convert(in *RegistryV1, installNamespace string, targetNamespaces []string) (*Plain, error) {
 	if installNamespace == "" {
 		installNamespace = in.CSV.Annotations["operatorframework.io/suggested-namespace"]
 	}

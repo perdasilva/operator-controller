@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type renderOptions struct {
@@ -23,7 +24,7 @@ func (o *renderOptions) validate() error {
 		return errors.New("install namespace is required")
 	}
 	if len(o.watchNamespaces) == 0 {
-		o.watchNamespaces = []string{o.installNamespace}
+		o.watchNamespaces = []string{corev1.NamespaceAll}
 	}
 	return nil
 }
