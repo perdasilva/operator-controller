@@ -106,7 +106,7 @@ metadata:
     olm.properties: '[{"type":"from-csv-annotations-key", "value":"from-csv-annotations-value"}]'
 spec:
   installModes:
-    - type: AllNamespaces
+    - type: allNamespaces
       supported: true`)},
 	}
 

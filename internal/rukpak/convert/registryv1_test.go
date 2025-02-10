@@ -3,6 +3,7 @@ package convert
 import (
 	"context"
 	"fmt"
+	sliceutil "github.com/operator-framework/operator-controller/internal/util/slices"
 	"os"
 	"strings"
 	"testing"
@@ -245,7 +246,7 @@ func TestRegistryV1SuiteGenerateAllNamespace(t *testing.T) {
 	t.Log("RegistryV1 Suite Convert")
 	t.Log("It should generate objects successfully based on target namespaces")
 
-	t.Log("It should convert into plain manifests successfully with AllNamespaces")
+	t.Log("It should convert into plain manifests successfully with allNamespaces")
 	baseCSV, svc := getBaseCsvAndService()
 	csv := baseCSV.DeepCopy()
 	csv.Spec.InstallModes = []v1alpha1.InstallMode{{Type: v1alpha1.InstallModeTypeAllNamespaces, Supported: true}}
@@ -371,6 +372,9 @@ func TestRegistryV1SuiteGenerateOwnNamespace(t *testing.T) {
 	require.NotNil(t, dep)
 	require.Contains(t, dep.(*appsv1.Deployment).Spec.Template.Annotations, olmNamespaces)
 	require.Equal(t, strings.Join(watchNamespaces, ","), dep.(*appsv1.Deployment).Spec.Template.Annotations[olmNamespaces])
+
+	t.Log("By verifying generated resources contain the ... annotation")
+	requireGeneratedResourcesAnnotated(t, plainBundle.Objects, registryv1Bundle.Others)
 }
 
 func TestRegistryV1SuiteGenerateErrorMultiNamespaceEmpty(t *testing.T) {
@@ -518,7 +522,7 @@ func TestRegistryV1SuiteGenerateNoWebhooks(t *testing.T) {
 	require.Nil(t, plainBundle)
 }
 
-func TestRegistryV1SuiteGenerateNoAPISerciceDefinitions(t *testing.T) {
+func TestRegistryV1SuiteGenerateNoAPIServiceDefinitions(t *testing.T) {
 	t.Log("RegistryV1 Suite Convert")
 	t.Log("It should generate objects successfully based on target namespaces")
 
@@ -556,6 +560,15 @@ func convertToUnstructured(t *testing.T, obj interface{}) unstructured.Unstructu
 	return unstructured.Unstructured{Object: unstructuredObj}
 }
 
+func requireGeneratedResourcesAnnotated(t *testing.T, renderedObjs []client.Object, bundleObjs []unstructured.Unstructured) {
+	generatedObjs := sliceutil.Filter(renderedObjs, func(renderedObj client.Object) bool {
+		return len(sliceutil.Filter(bundleObjs, equalsClientObject(renderedObj))) == 0
+	})
+	for _, obj := range generatedObjs {
+		require.Contains(t, obj.GetAnnotations(), AnnotationOLMGeneratedResource, "expected generated resource '%s' to contain annotation %s", obj.GetName(), AnnotationOLMGeneratedResource)
+	}
+}
+
 func findObjectByName(name string, result []client.Object) client.Object {
 	for _, o := range result {
 		// Since this is a controlled env, comparing only the names is sufficient for now.
@@ -565,4 +578,10 @@ func findObjectByName(name string, result []client.Object) client.Object {
 		}
 	}
 	return nil
+}
+
+func equalsClientObject(clientObj client.Object) sliceutil.Predicate[unstructured.Unstructured] {
+	return func(obj unstructured.Unstructured) bool {
+		return clientObj.GetName() == obj.GetName() && clientObj.GetObjectKind().GroupVersionKind().String() == obj.GroupVersionKind().String()
+	}
 }

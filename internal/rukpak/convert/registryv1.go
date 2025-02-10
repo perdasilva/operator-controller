@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/operator-framework/operator-controller/internal/rukpak/util/hash"
+	"github.com/operator-framework/operator-controller/internal/rukpak/util/resources"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -28,8 +30,10 @@ import (
 	registrybundle "github.com/operator-framework/operator-registry/pkg/lib/bundle"
 
 	registry "github.com/operator-framework/operator-controller/internal/rukpak/operator-registry"
-	"github.com/operator-framework/operator-controller/internal/rukpak/util"
+	maputil "github.com/operator-framework/operator-controller/internal/util/maps"
 )
+
+const AnnotationOLMGeneratedResource = "olm.operatorframework.io/generated-resource"
 
 type RegistryV1 struct {
 	PackageName string
@@ -251,13 +255,13 @@ func Convert(in *RegistryV1, installNamespace string, targetNamespaces []string)
 		return nil, fmt.Errorf("webhookDefinitions are not supported")
 	}
 
-	deployments := []appsv1.Deployment{}
-	serviceAccounts := map[string]corev1.ServiceAccount{}
+	var deployments []*appsv1.Deployment
+	serviceAccounts := map[string]*corev1.ServiceAccount{}
 	for _, depSpec := range in.CSV.Spec.InstallStrategy.StrategySpec.DeploymentSpecs {
-		annotations := util.MergeMaps(in.CSV.Annotations, depSpec.Spec.Template.Annotations)
+		annotations := maputil.MergeMaps(in.CSV.Annotations, depSpec.Spec.Template.Annotations)
 		annotations["olm.targetNamespaces"] = strings.Join(targetNamespaces, ",")
 		depSpec.Spec.Template.Annotations = annotations
-		deployments = append(deployments, appsv1.Deployment{
+		deployments = append(deployments, generatedResource(&appsv1.Deployment{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Deployment",
 				APIVersion: appsv1.SchemeGroupVersion.String(),
@@ -269,24 +273,24 @@ func Convert(in *RegistryV1, installNamespace string, targetNamespaces []string)
 				Labels:    depSpec.Label,
 			},
 			Spec: depSpec.Spec,
-		})
+		}))
 		saName := saNameOrDefault(depSpec.Spec.Template.Spec.ServiceAccountName)
-		serviceAccounts[saName] = newServiceAccount(installNamespace, saName)
+		serviceAccounts[saName] = generatedResource(resources.NewServiceAccount(installNamespace, saName))
 	}
 
 	// NOTES:
 	//   1. There's an extra Role for OperatorConditions: get/update/patch; resourceName=csv.name
 	//        - This is managed by the OperatorConditions controller here: https://github.com/operator-framework/operator-lifecycle-manager/blob/9ced412f3e263b8827680dc0ad3477327cd9a508/pkg/controller/operators/operatorcondition_controller.go#L106-L109
-	//   2. There's an extra RoleBinding for the above mentioned role.
+	//   2. There's an extra RoleBinding for the above-mentioned role.
 	//        - Every SA mentioned in the OperatorCondition.spec.serviceAccounts is a subject for this role binding: https://github.com/operator-framework/operator-lifecycle-manager/blob/9ced412f3e263b8827680dc0ad3477327cd9a508/pkg/controller/operators/operatorcondition_controller.go#L171-L177
 	//   3. strategySpec.permissions are _also_ given a clusterrole/clusterrole binding.
-	//  		- (for AllNamespaces mode only?)
+	//  		- (for allNamespaces mode only?)
 	//			- (where does the extra namespaces get/list/watch rule come from?)
 
-	roles := []rbacv1.Role{}
-	roleBindings := []rbacv1.RoleBinding{}
-	clusterRoles := []rbacv1.ClusterRole{}
-	clusterRoleBindings := []rbacv1.ClusterRoleBinding{}
+	var roles []*rbacv1.Role
+	var roleBindings []*rbacv1.RoleBinding
+	var clusterRoles []*rbacv1.ClusterRole
+	var clusterRoleBindings []*rbacv1.ClusterRoleBinding
 
 	permissions := in.CSV.Spec.InstallStrategy.StrategySpec.Permissions
 	clusterPermissions := in.CSV.Spec.InstallStrategy.StrategySpec.ClusterPermissions
@@ -296,11 +300,11 @@ func Convert(in *RegistryV1, installNamespace string, targetNamespaces []string)
 	for _, permission := range allPermissions {
 		saName := saNameOrDefault(permission.ServiceAccountName)
 		if _, ok := serviceAccounts[saName]; !ok {
-			serviceAccounts[saName] = newServiceAccount(installNamespace, saName)
+			serviceAccounts[saName] = generatedResource(resources.NewServiceAccount(installNamespace, saName))
 		}
 	}
 
-	// If we're in AllNamespaces mode, promote the permissions to clusterPermissions
+	// If we're in allNamespaces mode, promote the permissions to clusterPermissions
 	if len(targetNamespaces) == 1 && targetNamespaces[0] == "" {
 		for _, p := range permissions {
 			p.Rules = append(p.Rules, rbacv1.PolicyRule{
@@ -320,8 +324,8 @@ func Convert(in *RegistryV1, installNamespace string, targetNamespaces []string)
 			if err != nil {
 				return nil, err
 			}
-			roles = append(roles, newRole(ns, name, permission.Rules))
-			roleBindings = append(roleBindings, newRoleBinding(ns, name, name, installNamespace, saName))
+			roles = append(roles, generatedResource(resources.NewRole(ns, name, permission.Rules)))
+			roleBindings = append(roleBindings, generatedResource(resources.NewRoleBinding(ns, name, name, installNamespace, saName)))
 		}
 	}
 
@@ -331,32 +335,32 @@ func Convert(in *RegistryV1, installNamespace string, targetNamespaces []string)
 		if err != nil {
 			return nil, err
 		}
-		clusterRoles = append(clusterRoles, newClusterRole(name, permission.Rules))
-		clusterRoleBindings = append(clusterRoleBindings, newClusterRoleBinding(name, name, installNamespace, saName))
+		clusterRoles = append(clusterRoles, generatedResource(resources.NewClusterRole(name, permission.Rules)))
+		clusterRoleBindings = append(clusterRoleBindings, generatedResource(resources.NewClusterRoleBinding(name, name, installNamespace, saName)))
 	}
 
-	objs := []client.Object{}
+	var objs []client.Object
 	for _, obj := range serviceAccounts {
 		obj := obj
 		if obj.GetName() != "default" {
-			objs = append(objs, &obj)
+			objs = append(objs, obj)
 		}
 	}
 	for _, obj := range roles {
 		obj := obj
-		objs = append(objs, &obj)
+		objs = append(objs, obj)
 	}
 	for _, obj := range roleBindings {
 		obj := obj
-		objs = append(objs, &obj)
+		objs = append(objs, obj)
 	}
 	for _, obj := range clusterRoles {
 		obj := obj
-		objs = append(objs, &obj)
+		objs = append(objs, obj)
 	}
 	for _, obj := range clusterRoleBindings {
 		obj := obj
-		objs = append(objs, &obj)
+		objs = append(objs, obj)
 	}
 	for _, obj := range in.Others {
 		obj := obj
@@ -371,7 +375,7 @@ func Convert(in *RegistryV1, installNamespace string, targetNamespaces []string)
 	}
 	for _, obj := range deployments {
 		obj := obj
-		objs = append(objs, &obj)
+		objs = append(objs, obj)
 	}
 	return &Plain{Objects: objs}, nil
 }
@@ -379,7 +383,7 @@ func Convert(in *RegistryV1, installNamespace string, targetNamespaces []string)
 const maxNameLength = 63
 
 func generateName(base string, o interface{}) (string, error) {
-	hashStr, err := util.DeepHashObject(o)
+	hashStr, err := hash.DeepHashObject(o)
 	if err != nil {
 		return "", err
 	}
@@ -390,95 +394,17 @@ func generateName(base string, o interface{}) (string, error) {
 	return fmt.Sprintf("%s-%s", base, hashStr), nil
 }
 
-func newServiceAccount(namespace, name string) corev1.ServiceAccount {
-	return corev1.ServiceAccount{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ServiceAccount",
-			APIVersion: corev1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-	}
+type annotatable interface {
+	GetAnnotations() map[string]string
+	SetAnnotations(annotations map[string]string)
 }
 
-func newRole(namespace, name string, rules []rbacv1.PolicyRule) rbacv1.Role {
-	return rbacv1.Role{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Role",
-			APIVersion: rbacv1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Rules: rules,
+func generatedResource[T annotatable](obj T) T {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
 	}
-}
-
-func newClusterRole(name string, rules []rbacv1.PolicyRule) rbacv1.ClusterRole {
-	return rbacv1.ClusterRole{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ClusterRole",
-			APIVersion: rbacv1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Rules: rules,
-	}
-}
-
-func newRoleBinding(namespace, name, roleName, saNamespace string, saNames ...string) rbacv1.RoleBinding {
-	subjects := make([]rbacv1.Subject, 0, len(saNames))
-	for _, saName := range saNames {
-		subjects = append(subjects, rbacv1.Subject{
-			Kind:      "ServiceAccount",
-			Namespace: saNamespace,
-			Name:      saName,
-		})
-	}
-	return rbacv1.RoleBinding{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RoleBinding",
-			APIVersion: rbacv1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
-		Subjects: subjects,
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "Role",
-			Name:     roleName,
-		},
-	}
-}
-
-func newClusterRoleBinding(name, roleName, saNamespace string, saNames ...string) rbacv1.ClusterRoleBinding {
-	subjects := make([]rbacv1.Subject, 0, len(saNames))
-	for _, saName := range saNames {
-		subjects = append(subjects, rbacv1.Subject{
-			Kind:      "ServiceAccount",
-			Namespace: saNamespace,
-			Name:      saName,
-		})
-	}
-	return rbacv1.ClusterRoleBinding{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ClusterRoleBinding",
-			APIVersion: rbacv1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Subjects: subjects,
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "ClusterRole",
-			Name:     roleName,
-		},
-	}
+	annotations[AnnotationOLMGeneratedResource] = ""
+	obj.SetAnnotations(annotations)
+	return obj
 }

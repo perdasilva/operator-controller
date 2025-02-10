@@ -1,6 +1,7 @@
 package filter
 
 import (
+	sliceutil "github.com/operator-framework/operator-controller/internal/util/slices"
 	"slices"
 	"testing"
 
@@ -160,7 +161,7 @@ func TestSuccessorsPredicate(t *testing.T) {
 			for _, bundle := range bundleSet {
 				allBundles = append(allBundles, bundle)
 			}
-			result := Filter(allBundles, successors)
+			result := sliceutil.Filter(allBundles, successors)
 
 			// sort before comparison for stable order
 			slices.SortFunc(result, compare.ByVersion)

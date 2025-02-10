@@ -3,6 +3,7 @@ package resolve
 import (
 	"context"
 	"fmt"
+	sliceutil "github.com/operator-framework/operator-controller/internal/util/slices"
 	"slices"
 	"sort"
 	"strings"
@@ -96,7 +97,7 @@ func (r *CatalogResolver) Resolve(ctx context.Context, ext *ocv1.ClusterExtensio
 		cs.PackageFound = true
 		cs.TotalBundles = len(packageFBC.Bundles)
 
-		var predicates []filter.Predicate[declcfg.Bundle]
+		var predicates []sliceutil.Predicate[declcfg.Bundle]
 		if len(channels) > 0 {
 			channelSet := sets.New(channels...)
 			filteredChannels := slices.DeleteFunc(packageFBC.Channels, func(c declcfg.Channel) bool {
@@ -118,7 +119,7 @@ func (r *CatalogResolver) Resolve(ctx context.Context, ext *ocv1.ClusterExtensio
 		}
 
 		// Apply the predicates to get the candidate bundles
-		packageFBC.Bundles = filter.Filter(packageFBC.Bundles, filter.And(predicates...))
+		packageFBC.Bundles = sliceutil.Filter(packageFBC.Bundles, sliceutil.And(predicates...))
 		cs.MatchedBundles = len(packageFBC.Bundles)
 		if len(packageFBC.Bundles) == 0 {
 			return nil
