@@ -1,0 +1,104 @@
+---
+defaultChannel: alpha
+icon:
+  base64data: PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTguNTEgMjU4LjUxIj48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6I2QxZDFkMTt9LmNscy0ye2ZpbGw6IzhkOGQ4Zjt9PC9zdHlsZT48L2RlZnM+PHRpdGxlPkFzc2V0IDQ8L3RpdGxlPjxnIGlkPSJMYXllcl8yIiBkYXRhLW5hbWU9IkxheWVyIDIiPjxnIGlkPSJMYXllcl8xLTIiIGRhdGEtbmFtZT0iTGF5ZXIgMSI+PHBhdGggY2xhc3M9ImNscy0xIiBkPSJNMTI5LjI1LDIwQTEwOS4xLDEwOS4xLDAsMCwxLDIwNi40LDIwNi40LDEwOS4xLDEwOS4xLDAsMSwxLDUyLjExLDUyLjExLDEwOC40NSwxMDguNDUsMCwwLDEsMTI5LjI1LDIwbTAtMjBoMEM1OC4xNiwwLDAsNTguMTYsMCwxMjkuMjVIMGMwLDcxLjA5LDU4LjE2LDEyOS4yNiwxMjkuMjUsMTI5LjI2aDBjNzEuMDksMCwxMjkuMjYtNTguMTcsMTI5LjI2LTEyOS4yNmgwQzI1OC41MSw1OC4xNiwyMDAuMzQsMCwxMjkuMjUsMFoiLz48cGF0aCBjbGFzcz0iY2xzLTIiIGQ9Ik0xNzcuNTQsMTAzLjQxSDE0MS42NkwxNTQuOSw2NS43NmMxLjI1LTQuNC0yLjMzLTguNzYtNy4yMS04Ljc2SDEwMi45M2E3LjMyLDcuMzIsMCwwLDAtNy40LDZsLTEwLDY5LjYxYy0uNTksNC4xNywyLjg5LDcuODksNy40LDcuODloMzYuOUwxMTUuNTUsMTk3Yy0xLjEyLDQuNDEsMi40OCw4LjU1LDcuMjQsOC41NWE3LjU4LDcuNTgsMCwwLDAsNi40Ny0zLjQ4TDE4NCwxMTMuODVDMTg2Ljg2LDEwOS4yNCwxODMuMjksMTAzLjQxLDE3Ny41NCwxMDMuNDFaIi8+PC9nPjwvZz48L3N2Zz4=
+  mediatype: image/svg+xml
+name: rsct-operator
+schema: olm.package
+---
+entries:
+- name: rsct-operator.v0.0.1
+name: alpha
+package: rsct-operator
+schema: olm.channel
+---
+image: quay.io/operatorhubio/rsct-operator@sha256:6d862891c340bdc72da8397fd78fa76ce89f5436be98ea394cc02ac7d7105597
+name: rsct-operator.v0.0.1
+package: rsct-operator
+properties:
+- type: olm.gvk
+  value:
+    group: rsct.ibm.com
+    kind: RSCT
+    version: v1alpha1
+- type: olm.package
+  value:
+    packageName: rsct-operator
+    version: 0.0.1
+- type: olm.csv.metadata
+  value:
+    annotations:
+      alm-examples: |-
+        [
+          {
+            "apiVersion": "rsct.ibm.com/v1alpha1",
+            "kind": "RSCT",
+            "metadata": {
+              "labels": {
+                "app.kubernetes.io/created-by": "rsct-operator",
+                "app.kubernetes.io/instance": "rsct",
+                "app.kubernetes.io/managed-by": "kustomize",
+                "app.kubernetes.io/name": "rsct",
+                "app.kubernetes.io/part-of": "rsct-operator"
+              },
+              "name": "rsct",
+              "namespace": "rsct-operator-system"
+            },
+            "spec": {}
+          }
+        ]
+      capabilities: Basic Install
+      categories: OpenShift Optional
+      containerImage: ghcr.io/ocp-power-automation/rsct-operator:latest
+      createdAt: "2024-11-18T09:20:10Z"
+      description: Deploys RSCT daemonset on all nodes of an OpenShift cluster
+      operators.operatorframework.io/builder: operator-sdk-v1.34.1
+      operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
+      repository: https://github.com/ocp-power-automation/rsct-operator
+      support: IBM
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - description: RSCT is the Schema for the rscts API
+        displayName: RSCT
+        kind: RSCT
+        name: rscts.rsct.ibm.com
+        version: v1alpha1
+    description: Deploys custom resource RSCT on all nodes of an OpenShift cluster.
+    displayName: RSCT Operator for IBM Power Virtual Server
+    installModes:
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: false
+      type: AllNamespaces
+    keywords:
+    - rsct
+    - powervs
+    - ibm
+    - rmc
+    - power
+    labels:
+      operatorframework.io/arch.amd64: supported
+      operatorframework.io/arch.ppc64le: supported
+    links:
+    - name: RSCT Operator
+      url: https://github.com/ocp-power-automation/rsct-operator
+    maintainers:
+    - email: mjturek@us.ibm.com
+      name: Michael Turek
+    maturity: alpha
+    minKubeVersion: 1.25.0
+    provider:
+      name: IBM
+relatedImages:
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.15.0
+  name: ""
+- image: ghcr.io/ocp-power-automation/rsct-operator:latest
+  name: ""
+- image: quay.io/operatorhubio/rsct-operator@sha256:6d862891c340bdc72da8397fd78fa76ce89f5436be98ea394cc02ac7d7105597
+  name: ""
+schema: olm.bundle

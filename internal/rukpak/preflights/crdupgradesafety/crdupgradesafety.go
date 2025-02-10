@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/operator-framework/operator-controller/internal/rukpak/util/manifest"
 	"slices"
 	"strings"
 
@@ -15,8 +16,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/operator-framework/operator-controller/internal/rukpak/util"
 )
 
 type Option func(p *Preflight)
@@ -81,7 +80,7 @@ func (p *Preflight) runPreflight(ctx context.Context, rel *release.Release) erro
 		return nil
 	}
 
-	relObjects, err := util.ManifestObjects(strings.NewReader(rel.Manifest), fmt.Sprintf("%s-release-manifest", rel.Name))
+	relObjects, err := manifest.CollectObjects(strings.NewReader(rel.Manifest), fmt.Sprintf("%s-release-manifest", rel.Name))
 	if err != nil {
 		return fmt.Errorf("parsing release %q objects: %w", rel.Name, err)
 	}

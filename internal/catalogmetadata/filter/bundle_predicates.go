@@ -2,13 +2,14 @@ package filter
 
 import (
 	mmsemver "github.com/Masterminds/semver/v3"
+	"github.com/operator-framework/operator-controller/internal/util/slices"
 
 	"github.com/operator-framework/operator-registry/alpha/declcfg"
 
 	"github.com/operator-framework/operator-controller/internal/bundleutil"
 )
 
-func InMastermindsSemverRange(semverRange *mmsemver.Constraints) Predicate[declcfg.Bundle] {
+func InMastermindsSemverRange(semverRange *mmsemver.Constraints) slices.Predicate[declcfg.Bundle] {
 	return func(b declcfg.Bundle) bool {
 		bVersion, err := bundleutil.GetVersion(b)
 		if err != nil {
@@ -26,7 +27,7 @@ func InMastermindsSemverRange(semverRange *mmsemver.Constraints) Predicate[declc
 	}
 }
 
-func InAnyChannel(channels ...declcfg.Channel) Predicate[declcfg.Bundle] {
+func InAnyChannel(channels ...declcfg.Channel) slices.Predicate[declcfg.Bundle] {
 	return func(bundle declcfg.Bundle) bool {
 		for _, ch := range channels {
 			for _, entry := range ch.Entries {

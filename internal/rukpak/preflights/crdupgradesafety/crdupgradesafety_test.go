@@ -3,6 +3,7 @@ package crdupgradesafety_test
 import (
 	"context"
 	"fmt"
+	"github.com/operator-framework/operator-controller/internal/rukpak/util/manifest"
 	"os"
 	"strings"
 	"testing"
@@ -18,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/operator-framework/operator-controller/internal/rukpak/preflights/crdupgradesafety"
-	"github.com/operator-framework/operator-controller/internal/rukpak/util"
 )
 
 type MockCRDGetter struct {
@@ -48,7 +48,7 @@ func getCrdFromManifestFile(t *testing.T, oldCrdFile string) *apiextensionsv1.Cu
 	if oldCrdFile == "" {
 		return nil
 	}
-	relObjects, err := util.ManifestObjects(strings.NewReader(getManifestString(t, oldCrdFile)), "old")
+	relObjects, err := manifest.CollectObjects(strings.NewReader(getManifestString(t, oldCrdFile)), "old")
 	require.NoError(t, err)
 
 	newCrd := &apiextensionsv1.CustomResourceDefinition{}

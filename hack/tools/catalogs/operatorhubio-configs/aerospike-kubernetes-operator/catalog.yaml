@@ -1,0 +1,1135 @@
+---
+defaultChannel: stable
+icon:
+  base64data: PHN2ZyB3aWR0aD0iMjUwMCIgaGVpZ2h0PSIyNTAwIiB2aWV3Qm94PSIwIDAgMjU2IDI1NiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCI+PHBhdGggZD0iTTAgMGgyNTZ2MjU2SDBWMHoiIGZpbGw9IiNCMDI1MkEiLz48cGF0aCBkPSJNMTU2LjI5MyA5NS42MDVsLTczLjE2OSAzMi41OTQgNzMuMTcgMzIuODFWOTUuNjA1em0tOTIuMDMyIDM5Ljk3OWwtMTcuMDQ5LTcuMyAxNy4wNDktNy44ODIgMTQ0LjUyNy02NS4zNzZ2MTcuNDAzbC0zNy45MzIgMTYuODI0djc4LjExN2wzNy45MzIgMTd2MTYuNjA0TDY0LjI2IDEzNS41ODR6IiBmaWxsPSIjRkZGIi8+PC9zdmc+
+  mediatype: image/svg+xml
+name: aerospike-kubernetes-operator
+schema: olm.package
+---
+entries:
+- name: aerospike-kubernetes-operator.v2.0.0
+- name: aerospike-kubernetes-operator.v2.1.0
+  replaces: aerospike-kubernetes-operator.v2.0.0
+- name: aerospike-kubernetes-operator.v2.2.0
+  replaces: aerospike-kubernetes-operator.v2.1.0
+- name: aerospike-kubernetes-operator.v2.2.1
+  replaces: aerospike-kubernetes-operator.v2.2.0
+- name: aerospike-kubernetes-operator.v2.3.0
+  replaces: aerospike-kubernetes-operator.v2.2.1
+- name: aerospike-kubernetes-operator.v2.4.0
+  replaces: aerospike-kubernetes-operator.v2.3.0
+- name: aerospike-kubernetes-operator.v2.5.0
+  replaces: aerospike-kubernetes-operator.v2.4.0
+name: alpha
+package: aerospike-kubernetes-operator
+schema: olm.channel
+---
+entries:
+- name: aerospike-kubernetes-operator.v3.0.0
+  skipRange: '>=2.5.0 <3.0.0'
+- name: aerospike-kubernetes-operator.v3.1.0
+  replaces: aerospike-kubernetes-operator.v3.0.0
+  skipRange: '>=3.0.0 <3.1.0'
+- name: aerospike-kubernetes-operator.v3.2.0
+  replaces: aerospike-kubernetes-operator.v3.1.0
+  skipRange: '>=3.1.0 <3.2.0'
+- name: aerospike-kubernetes-operator.v3.2.1
+  replaces: aerospike-kubernetes-operator.v3.2.0
+- name: aerospike-kubernetes-operator.v3.2.2
+  replaces: aerospike-kubernetes-operator.v3.2.1
+  skipRange: '>=3.1.0 <3.2.2'
+- name: aerospike-kubernetes-operator.v3.3.0
+  replaces: aerospike-kubernetes-operator.v3.2.2
+  skipRange: '>=3.2.0 <3.3.0'
+- name: aerospike-kubernetes-operator.v3.3.1
+  replaces: aerospike-kubernetes-operator.v3.3.0
+  skipRange: '>=3.2.0 <3.3.1'
+- name: aerospike-kubernetes-operator.v3.4.0
+  replaces: aerospike-kubernetes-operator.v3.3.1
+  skipRange: '>=3.3.0 <3.4.0'
+- name: aerospike-kubernetes-operator.v3.4.1
+  replaces: aerospike-kubernetes-operator.v3.4.0
+  skipRange: '>=3.3.0 <3.4.1'
+- name: aerospike-kubernetes-operator.v4.0.0
+  replaces: aerospike-kubernetes-operator.v3.4.1
+  skipRange: '>=3.4.0 <4.0.0'
+name: stable
+package: aerospike-kubernetes-operator
+schema: olm.channel
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:f0e2a822c0b051599f84e9d0b7b162aa444034594a826c947bc64ee8aa1b32c5
+name: aerospike-kubernetes-operator.v2.0.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 2.0.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:2.0.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.5.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:f0e2a822c0b051599f84e9d0b7b162aa444034594a826c947bc64ee8aa1b32c5
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:2e3ae098738e4cfb89ee753f53d5fa2dad6651460db9399efff523943749f971
+name: aerospike-kubernetes-operator.v2.1.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 2.1.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:2.1.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.11.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:2e3ae098738e4cfb89ee753f53d5fa2dad6651460db9399efff523943749f971
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:998fc75692ec71f3847dffd4266425ff548a5feb5edf7d2e069f5bfa422efea5
+name: aerospike-kubernetes-operator.v2.2.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 2.2.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:2.2.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:998fc75692ec71f3847dffd4266425ff548a5feb5edf7d2e069f5bfa422efea5
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:93f8116e191a13b6944398b3478acbf3b8622b98ae1f91ba98936118daedbb83
+name: aerospike-kubernetes-operator.v2.2.1
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 2.2.1
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:2.2.1
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:93f8116e191a13b6944398b3478acbf3b8622b98ae1f91ba98936118daedbb83
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:2360ca3c251c226eb16cd997c910642785a36f3949ac4730b519b328aa33654e
+name: aerospike-kubernetes-operator.v2.3.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 2.3.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:2.3.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:2360ca3c251c226eb16cd997c910642785a36f3949ac4730b519b328aa33654e
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:fa6250a9836d0b7a41e0946b6db4b30d3726b9805cf18e1103d23a3d91f5454a
+name: aerospike-kubernetes-operator.v2.4.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 2.4.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:2.4.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:fa6250a9836d0b7a41e0946b6db4b30d3726b9805cf18e1103d23a3d91f5454a
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:31ea3360721d64db820b5b8576cbc95511c17268ac93de83c82eea6842ed9d05
+name: aerospike-kubernetes-operator.v2.5.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 2.5.0
+- type: olm.csv.metadata
+  value:
+    annotations:
+      alm-examples: |-
+        [
+          {
+            "apiVersion": "asdb.aerospike.com/v1beta1",
+            "kind": "AerospikeCluster",
+            "metadata": {
+              "name": "aerocluster",
+              "namespace": "aerospike"
+            },
+            "spec": {
+              "aerospikeConfig": {
+                "namespaces": [
+                  {
+                    "memory-size": 3000000000,
+                    "name": "test",
+                    "replication-factor": 2,
+                    "storage-engine": {
+                      "type": "memory"
+                    }
+                  }
+                ],
+                "network": {
+                  "fabric": {
+                    "port": 3001
+                  },
+                  "heartbeat": {
+                    "port": 3002
+                  },
+                  "service": {
+                    "port": 3000
+                  }
+                },
+                "service": {
+                  "feature-key-file": "/etc/aerospike/secret/features.conf"
+                }
+              },
+              "image": "aerospike/aerospike-server-enterprise:6.3.0.0",
+              "podSpec": {
+                "multiPodPerHost": true
+              },
+              "size": 2,
+              "storage": {
+                "volumes": [
+                  {
+                    "aerospike": {
+                      "path": "/etc/aerospike/secret"
+                    },
+                    "name": "aerospike-config-secret",
+                    "source": {
+                      "secret": {
+                        "secretName": "aerospike-secret"
+                      }
+                    }
+                  }
+                ]
+              },
+              "validationPolicy": {
+                "skipWorkDirValidate": true,
+                "skipXdrDlogFileValidate": true
+              }
+            }
+          }
+        ]
+      capabilities: Seamless Upgrades
+      categories: Database
+      containerImage: docker.io/aerospike/aerospike-kubernetes-operator:2.5.0
+      createdAt: 2023-05-04T09:32:47UTC
+      description: The Aerospike Kubernetes Operator automates the deployment and
+        management of Aerospike enterprise clusters on Kubernetes.
+      operators.operatorframework.io/builder: operator-sdk-v1.10.0+git
+      operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+      repository: https://github.com/aerospike/aerospike-kubernetes-operator/
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - description: AerospikeCluster is the schema for the AerospikeCluster API
+        displayName: Aerospike Cluster
+        kind: AerospikeCluster
+        name: aerospikeclusters.asdb.aerospike.com
+        resources:
+        - kind: Pod
+          name: ""
+          version: v1
+        - kind: Service
+          name: ""
+          version: v1
+        - kind: StatefulSet
+          name: ""
+          version: v1
+        specDescriptors:
+        - description: Has the Aerospike roles and users definitions. Required if
+            aerospike cluster security is enabled.
+          displayName: Access Control
+          path: aerospikeAccessControl
+        - description: Sets config in aerospike.conf file. Other configs are taken
+            as default
+          displayName: Aerospike Server Configuration
+          path: aerospikeConfig
+        - description: AerospikeNetworkPolicy specifies how clients and tools access
+            the Aerospike cluster.
+          displayName: Aerospike Network Policy
+          path: aerospikeNetworkPolicy
+        - description: Aerospike server image
+          displayName: Server Image
+          path: image
+        - description: Certificates to connect to Aerospike.
+          displayName: Operator Client Cert
+          path: operatorClientCert
+        - description: Specify additional configuration for the Aerospike pods
+          displayName: Pod Configuration
+          path: podSpec
+        - description: RackConfig Configures the operator to deploy rack aware Aerospike
+            cluster. Pods will be deployed in given racks based on given configuration
+          displayName: Rack Config
+          path: rackConfig
+        - description: SeedsFinderServices creates additional Kubernetes service that
+            allow clients to discover Aerospike cluster nodes.
+          displayName: Seeds Finder Services
+          path: seedsFinderServices
+        - description: Aerospike cluster size
+          displayName: Cluster Size
+          path: size
+        - description: Storage specify persistent storage to use for the Aerospike
+            pods
+          displayName: Storage
+          path: storage
+        - description: ValidationPolicy controls validation of the Aerospike cluster
+            resource.
+          displayName: Validation Policy
+          path: validationPolicy
+        statusDescriptors:
+        - description: Aerospike cluster size
+          displayName: Cluster Size
+          path: size
+        version: v1beta1
+    description: |
+      The Aerospike Kubernetes Operator automates the deployment and management of Aerospike enterprise clusters on Kubernetes. The operator allows you to deploy multi-node Aerospike clusters, recover automatically from node failures, scale up or down automatically as load changes, ensure nodes are evenly split across racks or zones, automatically update to new versions of Aerospike and manage configuration changes in your clusters.
+
+      ### Capabilities:
+
+       -   Deploy Aerospike clusters
+       -   Scale up and down existing Aerospike clusters
+       -   Version upgrade and downgrade
+       -   Configure persistent storage and resource allocation
+       -   Standardize and validate configurations
+       -   Cluster security management
+    displayName: Aerospike Kubernetes Operator
+    installModes:
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: true
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
+    keywords:
+    - Aerospike
+    labels:
+      operatorframework.io/arch.amd64: supported
+      operatorframework.io/arch.arm64: supported
+      operatorframework.io/os.linux: supported
+    links:
+    - name: Documentation
+      url: https://docs.aerospike.com/cloud/kubernetes/operator
+    - name: Aerospike
+      url: https://aerospike.com
+    maintainers:
+    - email: developers@aerospike.com
+      name: Aerospike, Inc.
+    maturity: beta
+    minKubeVersion: 1.16.0
+    provider:
+      name: Aerospike
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:2.5.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:31ea3360721d64db820b5b8576cbc95511c17268ac93de83c82eea6842ed9d05
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:16191481e4ccaddee52042f6ca8fcb9f24af27027f8014c1c9cd3dd4a7632eb5
+name: aerospike-kubernetes-operator.v3.0.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 3.0.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:3.0.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:16191481e4ccaddee52042f6ca8fcb9f24af27027f8014c1c9cd3dd4a7632eb5
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:8c113a05ce18559214efbbb519803546df4f11b4499edab65f547a42691737c1
+name: aerospike-kubernetes-operator.v3.1.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 3.1.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:3.1.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:8c113a05ce18559214efbbb519803546df4f11b4499edab65f547a42691737c1
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:587f113a09139f3e2d1a0a14453abd40c94432e4ae5828c60672c86d609a0669
+name: aerospike-kubernetes-operator.v3.2.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 3.2.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:3.2.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:587f113a09139f3e2d1a0a14453abd40c94432e4ae5828c60672c86d609a0669
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:41fdc1c51768eea388a34f310370f230d1b42042fcc51318aed6098ca5a9b077
+name: aerospike-kubernetes-operator.v3.2.1
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 3.2.1
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:3.2.1
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:41fdc1c51768eea388a34f310370f230d1b42042fcc51318aed6098ca5a9b077
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:728955a8b83f318d142a2cdd3b9b59cc9ab5b9702824c25ae2fe85cf9f767835
+name: aerospike-kubernetes-operator.v3.2.2
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 3.2.2
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:3.2.2
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.15.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:728955a8b83f318d142a2cdd3b9b59cc9ab5b9702824c25ae2fe85cf9f767835
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:aac5b718ef1bffb6739f5038c41051ebcaaecb2ad31db455ff92ec1c34ccfce7
+name: aerospike-kubernetes-operator.v3.3.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 3.3.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:3.3.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.15.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:aac5b718ef1bffb6739f5038c41051ebcaaecb2ad31db455ff92ec1c34ccfce7
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:6893ebb13ed2986d751b2da5d2787f1f5cc530cf238f9651a376bd68c2e951ba
+name: aerospike-kubernetes-operator.v3.3.1
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 3.3.1
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:3.3.1
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.15.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:6893ebb13ed2986d751b2da5d2787f1f5cc530cf238f9651a376bd68c2e951ba
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:9e22e5caae10500073b79e74757881bd634faa2021b65ca27d791c980aeca11c
+name: aerospike-kubernetes-operator.v3.4.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeBackup
+    version: v1beta1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeBackupService
+    version: v1beta1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeRestore
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 3.4.0
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:3.4.0
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:9e22e5caae10500073b79e74757881bd634faa2021b65ca27d791c980aeca11c
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:a20f18b444940d64db17da4c19f1b10dc8a23e56938f6bd3c33e0252ce0f2dab
+name: aerospike-kubernetes-operator.v3.4.1
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeBackup
+    version: v1beta1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeBackupService
+    version: v1beta1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1beta1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeRestore
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 3.4.1
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:3.4.1
+  name: ""
+- image: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:a20f18b444940d64db17da4c19f1b10dc8a23e56938f6bd3c33e0252ce0f2dab
+  name: ""
+schema: olm.bundle
+---
+image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:6e8f85dad9c67d7856c20b831edcdc317392b81c503aee27dffe736978038279
+name: aerospike-kubernetes-operator.v4.0.0
+package: aerospike-kubernetes-operator
+properties:
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeBackup
+    version: v1beta1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeBackupService
+    version: v1beta1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeCluster
+    version: v1
+- type: olm.gvk
+  value:
+    group: asdb.aerospike.com
+    kind: AerospikeRestore
+    version: v1beta1
+- type: olm.package
+  value:
+    packageName: aerospike-kubernetes-operator
+    version: 4.0.0
+- type: olm.csv.metadata
+  value:
+    annotations:
+      alm-examples: |-
+        [
+          {
+            "apiVersion": "asdb.aerospike.com/v1",
+            "kind": "AerospikeCluster",
+            "metadata": {
+              "name": "aerocluster",
+              "namespace": "aerospike"
+            },
+            "spec": {
+              "aerospikeConfig": {
+                "namespaces": [
+                  {
+                    "name": "test",
+                    "replication-factor": 2,
+                    "storage-engine": {
+                      "data-size": 1073741824,
+                      "type": "memory"
+                    }
+                  }
+                ],
+                "network": {
+                  "fabric": {
+                    "port": 3001
+                  },
+                  "heartbeat": {
+                    "port": 3002
+                  },
+                  "service": {
+                    "port": 3000
+                  }
+                },
+                "service": {
+                  "feature-key-file": "/etc/aerospike/secret/features.conf"
+                }
+              },
+              "image": "aerospike/aerospike-server-enterprise:8.0.0.2",
+              "podSpec": {
+                "multiPodPerHost": true
+              },
+              "size": 2,
+              "storage": {
+                "volumes": [
+                  {
+                    "aerospike": {
+                      "path": "/etc/aerospike/secret"
+                    },
+                    "name": "aerospike-config-secret",
+                    "source": {
+                      "secret": {
+                        "secretName": "aerospike-secret"
+                      }
+                    }
+                  }
+                ]
+              },
+              "validationPolicy": {
+                "skipWorkDirValidate": true,
+                "skipXdrDlogFileValidate": true
+              }
+            }
+          },
+          {
+            "apiVersion": "asdb.aerospike.com/v1beta1",
+            "kind": "AerospikeBackup",
+            "metadata": {
+              "name": "aerospikebackup",
+              "namespace": "aerospike"
+            },
+            "spec": {
+              "backupService": {
+                "name": "aerospikebackupservice-sample",
+                "namespace": "aerospike"
+              },
+              "config": {
+                "aerospike-cluster": {
+                  "aerospike-aerospikebackup-test-cluster": {
+                    "credentials": {
+                      "password": "admin123",
+                      "user": "admin"
+                    },
+                    "seed-nodes": [
+                      {
+                        "host-name": "aerocluster.aerospike.svc.cluster.local",
+                        "port": 3000
+                      }
+                    ]
+                  }
+                },
+                "backup-routines": {
+                  "aerospike-aerospikebackup-test-routine": {
+                    "backup-policy": "test-policy",
+                    "incr-interval-cron": "@hourly",
+                    "interval-cron": "@daily",
+                    "namespaces": [
+                      "test"
+                    ],
+                    "source-cluster": "aerospike-aerospikebackup-test-cluster",
+                    "storage": "local"
+                  },
+                  "aerospike-aerospikebackup-test-routine1": {
+                    "backup-policy": "test-policy1",
+                    "incr-interval-cron": "@hourly",
+                    "interval-cron": "@daily",
+                    "namespaces": [
+                      "test"
+                    ],
+                    "source-cluster": "aerospike-aerospikebackup-test-cluster",
+                    "storage": "s3Storage"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "apiVersion": "asdb.aerospike.com/v1beta1",
+            "kind": "AerospikeBackupService",
+            "metadata": {
+              "name": "aerospikebackupservice-sample",
+              "namespace": "aerospike"
+            },
+            "spec": {
+              "config": {
+                "backup-policies": {
+                  "test-policy": {
+                    "parallel": 3
+                  },
+                  "test-policy1": {
+                    "parallel": 3
+                  }
+                },
+                "service": {
+                  "http": {
+                    "port": 8081
+                  }
+                },
+                "storage": {
+                  "local": {
+                    "local-storage": {
+                      "path": "/localStorage"
+                    }
+                  },
+                  "s3Storage": {
+                    "s3-storage": {
+                      "bucket": "aerospike-kubernetes-operator-test",
+                      "s3-profile": "default",
+                      "s3-region": "us-east-1"
+                    }
+                  }
+                }
+              },
+              "image": "aerospike/aerospike-backup-service:3.0.0",
+              "secrets": [
+                {
+                  "secretName": "aws-secret",
+                  "volumeMount": {
+                    "mountPath": "/root/.aws/credentials",
+                    "name": "aws-secret",
+                    "subPath": "credentials"
+                  }
+                }
+              ],
+              "service": {
+                "type": "LoadBalancer"
+              }
+            }
+          },
+          {
+            "apiVersion": "asdb.aerospike.com/v1beta1",
+            "kind": "AerospikeRestore",
+            "metadata": {
+              "name": "aerospikerestore-sample",
+              "namespace": "aerospike"
+            },
+            "spec": {
+              "backupService": {
+                "name": "aerospikebackupservice-sample",
+                "namespace": "aerospike"
+              },
+              "config": {
+                "backup-data-path": "aerospike-aerospikebackup-test-routine/backup/1733506015827/data/test",
+                "destination": {
+                  "credentials": {
+                    "password": "admin123",
+                    "user": "admin"
+                  },
+                  "label": "destinationCluster",
+                  "seed-nodes": [
+                    {
+                      "host-name": "aerocluster.test.svc.cluster.local",
+                      "port": 3000
+                    }
+                  ]
+                },
+                "policy": {
+                  "no-generation": true,
+                  "no-indexes": true,
+                  "parallel": 3
+                },
+                "source": {
+                  "local-storage": {
+                    "path": "/localStorage"
+                  }
+                }
+              },
+              "type": "Full"
+            }
+          }
+        ]
+      capabilities: Deep Insights
+      categories: Database
+      containerImage: docker.io/aerospike/aerospike-kubernetes-operator:4.0.0
+      createdAt: "2025-02-06T15:50:15Z"
+      description: The Aerospike Kubernetes Operator automates the deployment and
+        management of Aerospike enterprise clusters on Kubernetes.
+      olm.skipRange: '>=3.4.0 <4.0.0'
+      operators.operatorframework.io/builder: operator-sdk-v1.39.1
+      operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
+      repository: https://github.com/aerospike/aerospike-kubernetes-operator/
+    apiServiceDefinitions: {}
+    crdDescriptions:
+      owned:
+      - description: AerospikeBackup is the Schema for the aerospikebackup API
+        displayName: Aerospike Backup
+        kind: AerospikeBackup
+        name: aerospikebackups.asdb.aerospike.com
+        specDescriptors:
+        - description: |-
+            BackupService is the backup service reference i.e. name and namespace.
+            It is used to communicate to the backup service to trigger backups. This field is immutable
+          displayName: Backup Service
+          path: backupService
+        - description: |-
+            Config is the free form configuration for the backup in YAML format.
+            This config is used to trigger backups. It includes: aerospike-cluster, backup-routines.
+          displayName: Backup Config
+          path: config
+        - description: OnDemandBackups is the configuration for on-demand backups.
+          displayName: On Demand Backups
+          path: onDemandBackups
+        version: v1beta1
+      - description: AerospikeBackupService is the Schema for the aerospikebackupservices
+          API
+        displayName: Aerospike Backup Service
+        kind: AerospikeBackupService
+        name: aerospikebackupservices.asdb.aerospike.com
+        specDescriptors:
+        - description: |-
+            Config is the free form configuration for the backup service in YAML format.
+            This config is used to start the backup service. The config is passed as a file to the backup service.
+            It includes: service, backup-policies, storage, secret-agent.
+          displayName: Backup Service Config
+          path: config
+        - description: Image is the image for the backup service.
+          displayName: Backup Service Image
+          path: image
+        - description: Specify additional configuration for the AerospikeBackupService
+            pods
+          displayName: Pod Configuration
+          path: podSpec
+        - description: |-
+            Resources defines the requests and limits for the backup service container.
+            Resources.Limits should be more than Resources.Requests.
+            Deprecated: Resources field is now part of spec.podSpec.serviceContainer
+          displayName: Resources
+          path: resources
+        - description: SecretMounts is the list of secret to be mounted in the backup
+            service.
+          displayName: Backup Service SecretMounts
+          path: secrets
+        - description: |-
+            Service defines the Kubernetes service configuration for the backup service.
+            It is used to expose the backup service deployment. By default, the service type is ClusterIP.
+          displayName: K8s Service
+          path: service
+        version: v1beta1
+      - description: AerospikeCluster is the schema for the AerospikeCluster API
+        displayName: Aerospike Cluster
+        kind: AerospikeCluster
+        name: aerospikeclusters.asdb.aerospike.com
+        resources:
+        - kind: Pod
+          name: ""
+          version: v1
+        - kind: Service
+          name: ""
+          version: v1
+        - kind: StatefulSet
+          name: ""
+          version: v1
+        specDescriptors:
+        - description: Has the Aerospike roles and users definitions. Required if
+            aerospike cluster security is enabled.
+          displayName: Access Control
+          path: aerospikeAccessControl
+        - description: Sets config in aerospike.conf file. Other configs are taken
+            as default
+          displayName: Aerospike Server Configuration
+          path: aerospikeConfig
+        - description: AerospikeNetworkPolicy specifies how clients and tools access
+            the Aerospike cluster.
+          displayName: Aerospike Network Policy
+          path: aerospikeNetworkPolicy
+        - description: Disable the PodDisruptionBudget creation for the Aerospike
+            cluster.
+          displayName: Disable PodDisruptionBudget
+          path: disablePDB
+        - description: |-
+            EnableDynamicConfigUpdate enables dynamic config update flow of the operator.
+            If enabled, operator will try to update the Aerospike config dynamically.
+            In case of inconsistent state during dynamic config update, operator falls back to rolling restart.
+          displayName: Enable Dynamic Config Update
+          path: enableDynamicConfigUpdate
+        - description: Aerospike server image
+          displayName: Server Image
+          path: image
+        - description: |-
+            K8sNodeBlockList is a list of Kubernetes nodes which are not used for Aerospike pods. Pods are not scheduled on
+            these nodes. Pods are migrated from these nodes if already present. This is useful for the maintenance of
+            Kubernetes nodes.
+          displayName: Kubernetes Node BlockList
+          path: k8sNodeBlockList
+        - description: |-
+            MaxUnavailable is the percentage/number of pods that can be allowed to go down or unavailable before application
+            disruption. This value is used to create PodDisruptionBudget. Defaults to 1.
+            Refer Aerospike documentation for more details.
+          displayName: Max Unavailable
+          path: maxUnavailable
+        - description: Operations is a list of on-demand operations to be performed
+            on the Aerospike cluster.
+          displayName: Operations
+          path: operations
+        - description: Certificates to connect to Aerospike.
+          displayName: Operator Client Cert
+          path: operatorClientCert
+        - description: Paused flag is used to pause the reconciliation for the AerospikeCluster.
+          displayName: Pause Reconcile
+          path: paused
+        - description: Specify additional configuration for the Aerospike pods
+          displayName: Pod Configuration
+          path: podSpec
+        - description: |-
+            RackConfig Configures the operator to deploy rack aware Aerospike cluster.
+            Pods will be deployed in given racks based on given configuration
+          displayName: Rack Config
+          path: rackConfig
+        - description: RosterNodeBlockList is a list of blocked nodeIDs from roster
+            in a strong-consistency setup
+          displayName: Roster Node BlockList
+          path: rosterNodeBlockList
+        - description: |-
+            SeedsFinderServices creates additional Kubernetes service that allow
+            clients to discover Aerospike cluster nodes.
+          displayName: Seeds Finder Services
+          path: seedsFinderServices
+        - description: Aerospike cluster size
+          displayName: Cluster Size
+          path: size
+        - description: Storage specify persistent storage to use for the Aerospike
+            pods
+          displayName: Storage
+          path: storage
+        - description: ValidationPolicy controls validation of the Aerospike cluster
+            resource.
+          displayName: Validation Policy
+          path: validationPolicy
+        version: v1
+      - description: AerospikeRestore is the Schema for the aerospikerestores API
+        displayName: Aerospike Restore
+        kind: AerospikeRestore
+        name: aerospikerestores.asdb.aerospike.com
+        specDescriptors:
+        - description: |-
+            BackupService is the backup service reference i.e. name and namespace.
+            It is used to communicate to the backup service to trigger restores. This field is immutable
+          displayName: Backup Service
+          path: backupService
+        - description: |-
+            Config is the free form configuration for the restore in YAML format.
+            This config is used to trigger restores. It includes: destination, policy, source, secret-agent, time and routine.
+          displayName: Restore Config
+          path: config
+        - description: |-
+            PollingPeriod is the polling period for restore operation status.
+            It is used to poll the restore service to fetch restore operation status.
+            Default is 60 seconds.
+          displayName: Restore Service Polling Period
+          path: pollingPeriod
+        - description: |-
+            Type is the type of restore. It can of type Full, Incremental, and Timestamp.
+            Based on the restore type, the relevant restore config should be given.
+          displayName: Restore Type
+          path: type
+        version: v1beta1
+    description: |
+      The Aerospike Kubernetes Operator automates the deployment and management of Aerospike enterprise clusters on Kubernetes. The operator allows you to deploy multi-node Aerospike clusters, recover automatically from node failures, scale up or down automatically as load changes, ensure nodes are evenly split across racks or zones, automatically update to new versions of Aerospike and manage configuration changes in your clusters.
+
+      ### Capabilities:
+
+       -   Deploy Aerospike clusters
+       -   Scale up and down existing Aerospike clusters
+       -   Version upgrade and downgrade
+       -   Configure persistent storage and resource allocation
+       -   Standardize and validate configurations
+       -   Cluster security management
+       -   Aerospike cluster monitoring
+       -   Backup and restore Aerospike clusters
+    displayName: Aerospike Kubernetes Operator
+    installModes:
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: true
+      type: MultiNamespace
+    - supported: true
+      type: AllNamespaces
+    keywords:
+    - Aerospike
+    labels:
+      operatorframework.io/arch.amd64: supported
+      operatorframework.io/arch.arm64: supported
+      operatorframework.io/os.linux: supported
+    links:
+    - name: Documentation
+      url: https://docs.aerospike.com/cloud/kubernetes/operator
+    - name: Aerospike
+      url: https://aerospike.com
+    maintainers:
+    - email: developers@aerospike.com
+      name: Aerospike, Inc.
+    maturity: stable
+    minKubeVersion: 1.23.0
+    provider:
+      name: Aerospike
+relatedImages:
+- image: docker.io/aerospike/aerospike-kubernetes-operator:4.0.0
+  name: ""
+- image: quay.io/operatorhubio/aerospike-kubernetes-operator@sha256:6e8f85dad9c67d7856c20b831edcdc317392b81c503aee27dffe736978038279
+  name: ""
+schema: olm.bundle

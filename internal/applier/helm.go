@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/operator-framework/operator-controller/internal/rukpak/util/manifest"
+	maputil "github.com/operator-framework/operator-controller/internal/util/maps"
 	"io"
 	"io/fs"
 	"strings"
@@ -27,7 +29,6 @@ import (
 	"github.com/operator-framework/operator-controller/internal/features"
 	"github.com/operator-framework/operator-controller/internal/rukpak/convert"
 	"github.com/operator-framework/operator-controller/internal/rukpak/preflights/crdupgradesafety"
-	"github.com/operator-framework/operator-controller/internal/rukpak/util"
 )
 
 const (
@@ -144,7 +145,7 @@ func (h *Helm) Apply(ctx context.Context, contentFS fs.FS, ext *ocv1.ClusterExte
 		return nil, state, fmt.Errorf("unexpected release state %q", state)
 	}
 
-	relObjects, err := util.ManifestObjects(strings.NewReader(rel.Manifest), fmt.Sprintf("%s-release-manifest", rel.Name))
+	relObjects, err := manifest.CollectObjects(strings.NewReader(rel.Manifest), fmt.Sprintf("%s-release-manifest", rel.Name))
 	if err != nil {
 		return nil, state, err
 	}
@@ -208,7 +209,7 @@ func (p *postrenderer) Run(renderedManifests *bytes.Buffer) (*bytes.Buffer, erro
 		if err != nil {
 			return nil, err
 		}
-		obj.SetLabels(util.MergeMaps(obj.GetLabels(), p.labels))
+		obj.SetLabels(maputil.MergeMaps(obj.GetLabels(), p.labels))
 		b, err := obj.MarshalJSON()
 		if err != nil {
 			return nil, err

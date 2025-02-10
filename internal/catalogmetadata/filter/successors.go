@@ -2,6 +2,7 @@ package filter
 
 import (
 	"fmt"
+	"github.com/operator-framework/operator-controller/internal/util/slices"
 
 	mmsemver "github.com/Masterminds/semver/v3"
 	bsemver "github.com/blang/semver/v4"
@@ -11,7 +12,7 @@ import (
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 )
 
-func SuccessorsOf(installedBundle ocv1.BundleMetadata, channels ...declcfg.Channel) (Predicate[declcfg.Bundle], error) {
+func SuccessorsOf(installedBundle ocv1.BundleMetadata, channels ...declcfg.Channel) (slices.Predicate[declcfg.Bundle], error) {
 	installedBundleVersion, err := mmsemver.NewVersion(installedBundle.Version)
 	if err != nil {
 		return nil, fmt.Errorf("parsing installed bundle %q version %q: %w", installedBundle.Name, installedBundle.Version, err)
@@ -28,13 +29,13 @@ func SuccessorsOf(installedBundle ocv1.BundleMetadata, channels ...declcfg.Chann
 	}
 
 	// We need either successors or current version (no upgrade)
-	return Or(
+	return slices.Or(
 		successorsPredicate,
 		InMastermindsSemverRange(installedVersionConstraint),
 	), nil
 }
 
-func legacySuccessor(installedBundle ocv1.BundleMetadata, channels ...declcfg.Channel) (Predicate[declcfg.Bundle], error) {
+func legacySuccessor(installedBundle ocv1.BundleMetadata, channels ...declcfg.Channel) (slices.Predicate[declcfg.Bundle], error) {
 	installedBundleVersion, err := bsemver.Parse(installedBundle.Version)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing installed bundle version: %w", err)
