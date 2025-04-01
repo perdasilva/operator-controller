@@ -1,7 +1,10 @@
 package convert
 
 import (
+<<<<<<< HEAD
 	"cmp"
+=======
+>>>>>>> 2af24e88 (Refactor converter to use validator)
 	"errors"
 	"fmt"
 	"maps"
@@ -29,9 +32,12 @@ var RegistryV1BundleValidator = BundleValidator{
 	CheckDeploymentSpecUniqueness,
 	CheckCRDResourceUniqueness,
 	CheckOwnedCRDExistence,
+<<<<<<< HEAD
 	CheckWebhookDeploymentReferentialIntegrity,
 	CheckWebhookNameUniqueness,
 	CheckConversionWebhookCRDReferences,
+=======
+>>>>>>> 2af24e88 (Refactor converter to use validator)
 }
 
 // CheckDeploymentSpecUniqueness checks that each strategy deployment spec in the csv has a unique name.
