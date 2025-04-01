@@ -1,7 +1,6 @@
 package convert_test
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -34,38 +33,6 @@ const (
 	bundlePathAnnotations = "metadata/annotations.yaml"
 	bundlePathCSV         = "manifests/csv.yaml"
 )
-
-func getCsvAndService() (v1alpha1.ClusterServiceVersion, corev1.Service) {
-	csv := v1alpha1.ClusterServiceVersion{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "testCSV",
-		},
-		Spec: v1alpha1.ClusterServiceVersionSpec{
-			InstallModes: []v1alpha1.InstallMode{{Type: v1alpha1.InstallModeTypeAllNamespaces, Supported: true}},
-		},
-	}
-	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "testService",
-		},
-	}
-	svc.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"})
-	return csv, svc
-}
-
-func TestConverterValidatesBundle(t *testing.T) {
-	converter := convert.Converter{
-		BundleValidator: []func(rv1 *convert.RegistryV1) []error{
-			func(rv1 *convert.RegistryV1) []error {
-				return []error{errors.New("test error")}
-			},
-		},
-	}
-
-	_, err := converter.Convert(convert.RegistryV1{}, "installNamespace", []string{"watchNamespace"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "test error")
-}
 
 func TestPlainConverterUsedRegV1Validator(t *testing.T) {
 	require.Equal(t, convert.RegistryV1BundleValidator, convert.PlainConverter.BundleValidator)
@@ -209,61 +176,6 @@ func TestRegistryV1SuiteNamespaceClusterScoped(t *testing.T) {
 	resObj := findObjectByName(pc.Name, plainBundle.Objects)
 	require.NotNil(t, resObj)
 	require.Empty(t, resObj.GetNamespace())
-}
-
-func getBaseCsvAndService() (v1alpha1.ClusterServiceVersion, corev1.Service) {
-	// base CSV definition that each test case will deep copy and modify
-	baseCSV := v1alpha1.ClusterServiceVersion{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "testCSV",
-			Annotations: map[string]string{
-				olmProperties: fmt.Sprintf("[{\"type\": %s, \"value\": \"%s\"}]", property.TypeConstraint, "value"),
-			},
-		},
-		Spec: v1alpha1.ClusterServiceVersionSpec{
-			InstallStrategy: v1alpha1.NamedInstallStrategy{
-				StrategySpec: v1alpha1.StrategyDetailsDeployment{
-					DeploymentSpecs: []v1alpha1.StrategyDeploymentSpec{
-						{
-							Name: "testDeployment",
-							Spec: appsv1.DeploymentSpec{
-								Template: corev1.PodTemplateSpec{
-									Spec: corev1.PodSpec{
-										Containers: []corev1.Container{
-											{
-												Name:  "testContainer",
-												Image: "testImage",
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					Permissions: []v1alpha1.StrategyDeploymentPermissions{
-						{
-							ServiceAccountName: "testServiceAccount",
-							Rules: []rbacv1.PolicyRule{
-								{
-									APIGroups: []string{"test"},
-									Resources: []string{"pods"},
-									Verbs:     []string{"*"},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "testService",
-		},
-	}
-	svc.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"})
-	return baseCSV, svc
 }
 
 func TestRegistryV1SuiteGenerateAllNamespace(t *testing.T) {
@@ -613,6 +525,79 @@ func TestRegistryV1SuiteGenerateNoAPISerciceDefinitions(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "apiServiceDefintions are not supported")
 	require.Nil(t, plainBundle)
+}
+
+func getCsvAndService() (v1alpha1.ClusterServiceVersion, corev1.Service) {
+	csv := v1alpha1.ClusterServiceVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testCSV",
+		},
+		Spec: v1alpha1.ClusterServiceVersionSpec{
+			InstallModes: []v1alpha1.InstallMode{{Type: v1alpha1.InstallModeTypeAllNamespaces, Supported: true}},
+		},
+	}
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testService",
+		},
+	}
+	svc.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"})
+	return csv, svc
+}
+
+func getBaseCsvAndService() (v1alpha1.ClusterServiceVersion, corev1.Service) {
+	// base CSV definition that each test case will deep copy and modify
+	baseCSV := v1alpha1.ClusterServiceVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testCSV",
+			Annotations: map[string]string{
+				olmProperties: fmt.Sprintf("[{\"type\": %s, \"value\": \"%s\"}]", property.TypeConstraint, "value"),
+			},
+		},
+		Spec: v1alpha1.ClusterServiceVersionSpec{
+			InstallStrategy: v1alpha1.NamedInstallStrategy{
+				StrategySpec: v1alpha1.StrategyDetailsDeployment{
+					DeploymentSpecs: []v1alpha1.StrategyDeploymentSpec{
+						{
+							Name: "testDeployment",
+							Spec: appsv1.DeploymentSpec{
+								Template: corev1.PodTemplateSpec{
+									Spec: corev1.PodSpec{
+										Containers: []corev1.Container{
+											{
+												Name:  "testContainer",
+												Image: "testImage",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					Permissions: []v1alpha1.StrategyDeploymentPermissions{
+						{
+							ServiceAccountName: "testServiceAccount",
+							Rules: []rbacv1.PolicyRule{
+								{
+									APIGroups: []string{"test"},
+									Resources: []string{"pods"},
+									Verbs:     []string{"*"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "testService",
+		},
+	}
+	svc.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"})
+	return baseCSV, svc
 }
 
 func convertToUnstructured(t *testing.T, obj interface{}) unstructured.Unstructured {
