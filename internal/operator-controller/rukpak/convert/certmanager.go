@@ -97,7 +97,7 @@ func (p CertManagerProvider) annotate(obj client.Object) {
     injectionAnnotation := map[string]string{
         certManagerInjectCAAnnotation: fmt.Sprintf("%s/%s", p.InstallNamespace, p.CertName),
     }
-    obj.SetAnnotations(util.MergeMaps(injectionAnnotation, obj.GetAnnotations()))
+    obj.SetAnnotations(util.MergeMaps(obj.GetAnnotations(), injectionAnnotation))
 }
 
 func toUnstructured(obj client.Object) (*unstructured.Unstructured, error) {

@@ -29,6 +29,11 @@ type Converter struct {
     BundleValidator BundleValidator
 }
 
+type Options struct {
+    InstallNamespace string
+    TargetNamespaces []string
+}
+
 func (c Converter) Convert(rv1 RegistryV1, installNamespace string, targetNamespaces []string) (*Plain, error) {
     if err := c.BundleValidator.Validate(&rv1); err != nil {
         return nil, err
@@ -42,25 +47,16 @@ func (c Converter) Convert(rv1 RegistryV1, installNamespace string, targetNamesp
         return nil, err
     }
 
+    opts := Options{
+        InstallNamespace: installNamespace,
+        TargetNamespaces: targetNamespaces,
+    }
+
     // generate deployments
     deployments := map[string]*appsv1.Deployment{}
     serviceAccounts := map[string]corev1.ServiceAccount{}
     for _, depSpec := range rv1.CSV.Spec.InstallStrategy.StrategySpec.DeploymentSpecs {
-        annotations := util.MergeMaps(rv1.CSV.Annotations, depSpec.Spec.Template.Annotations)
-        annotations["olm.targetNamespaces"] = strings.Join(targetNamespaces, ",")
-        depSpec.Spec.Template.Annotations = annotations
-        deployments[depSpec.Name] = &appsv1.Deployment{
-            TypeMeta: metav1.TypeMeta{
-                Kind:       "Deployment",
-                APIVersion: appsv1.SchemeGroupVersion.String(),
-            },
-            ObjectMeta: metav1.ObjectMeta{
-                Namespace: installNamespace,
-                Name:      depSpec.Name,
-                Labels:    depSpec.Label,
-            },
-            Spec: depSpec.Spec,
-        }
+        deployments[depSpec.Name] = renderDeployment(&rv1, depSpec, opts)
         saName := saNameOrDefault(depSpec.Spec.Template.Spec.ServiceAccountName)
         serviceAccounts[saName] = newServiceAccount(installNamespace, saName)
     }
@@ -260,12 +256,39 @@ func (c Converter) Convert(rv1 RegistryV1, installNamespace string, targetNamesp
         }
     }
 
+    // update crd conversion webhook settings if they already exist
+    whServiceToCrdsMap := map[string][]*apiextensionsv1.CustomResourceDefinition{}
+    for crdName, _ := range crds {
+        crd := crds[crdName]
+        if crd.Spec.Conversion != nil && crd.Spec.Conversion.Webhook != nil && crd.Spec.Conversion.Webhook.ClientConfig != nil && crd.Spec.Conversion.Webhook.ClientConfig.Service != nil {
+            crd.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = installNamespace
+            serviceName := crd.Spec.Conversion.Webhook.ClientConfig.Service.Name
+            if _, ok := whServiceToCrdsMap[serviceName]; !ok {
+                whServiceToCrdsMap[serviceName] = []*apiextensionsv1.CustomResourceDefinition{}
+            }
+            whServiceToCrdsMap[serviceName] = append(whServiceToCrdsMap[serviceName], crd)
+        }
+    }
+
     // update conversion webhook crds
     for _, crdConversionMap := range conversionWebhooksByCRDByDeployment {
         for crdName, crdConversion := range crdConversionMap {
             crd := crds[crdName]
             crd.Spec.Conversion = &crdConversion
         }
+    }
+
+    var others []client.Object
+    for _, obj := range rv1.Others {
+        obj := obj
+        supported, namespaced := registrybundle.IsSupported(obj.GetKind())
+        if !supported {
+            return nil, fmt.Errorf("bundle contains unsupported resource: Name: %v, Kind: %v", obj.GetName(), obj.GetKind())
+        }
+        if namespaced {
+            obj.SetNamespace(installNamespace)
+        }
+        others = append(others, &obj)
     }
 
     // apply certificates
@@ -301,6 +324,36 @@ func (c Converter) Convert(rv1 RegistryV1, installNamespace string, targetNamesp
         }
 
         updateDeploymentVolumeMounts(deployments[depName], c.CertName, "tls.crt", "tls.key")
+
+        addObjs, err := c.AdditionalObjects()
+        if err != nil {
+            return nil, fmt.Errorf("failed to inject addObjs: %w", err)
+        }
+        for _, obj := range addObjs {
+            additionalCertObjs = append(additionalCertObjs, &obj)
+        }
+    }
+
+    // apply certificates to bundle provided conversion webhook resources
+    for whServiceName, crds := range whServiceToCrdsMap {
+        c := CertManagerProvider{
+            CertName:           fmt.Sprintf("%s-%s-cert", rv1.CSV.Name, whServiceName),
+            WebhookServiceName: whServiceName,
+            InstallNamespace:   installNamespace,
+        }
+        for idx, _ := range crds {
+            if err := c.InjectCABundle(crds[idx]); err != nil {
+                return nil, fmt.Errorf("failed to inject CA bundle: %w", err)
+            }
+        }
+
+        for idx, _ := range others {
+            if others[idx].GetObjectKind().GroupVersionKind().Kind == "Service" && others[idx].GetName() == whServiceName {
+                if err := c.InjectCABundle(others[idx]); err != nil {
+                    return nil, fmt.Errorf("failed to inject CA bundle: %w", err)
+                }
+            }
+        }
 
         addObjs, err := c.AdditionalObjects()
         if err != nil {
@@ -370,6 +423,29 @@ func (c Converter) Convert(rv1 RegistryV1, installNamespace string, targetNamesp
         objs = append(objs, obj)
     }
     return &Plain{Objects: objs}, nil
+}
+
+func renderDeployment(rv1 *RegistryV1, depSpec v1alpha1.StrategyDeploymentSpec, opts Options) *appsv1.Deployment {
+    annotations := util.MergeMaps(rv1.CSV.Annotations, depSpec.Spec.Template.Annotations)
+    annotations["olm.targetNamespaces"] = strings.Join(opts.TargetNamespaces, ",")
+    depSpec.Spec.Template.Annotations = annotations
+    return &appsv1.Deployment{
+        TypeMeta: metav1.TypeMeta{
+            Kind:       "Deployment",
+            APIVersion: appsv1.SchemeGroupVersion.String(),
+        },
+        ObjectMeta: metav1.ObjectMeta{
+            Namespace: opts.InstallNamespace,
+            Name:      depSpec.Name,
+            Labels:    depSpec.Label,
+        },
+        Spec: depSpec.Spec,
+    }
+}
+
+func renderServiceAccount(_ *RegistryV1, perms v1alpha1.StrategyDeploymentPermissions, opts Options) *corev1.ServiceAccount {
+    serviceAccount := newServiceAccount(opts.InstallNamespace, saNameOrDefault(perms.ServiceAccountName))
+    return &serviceAccount
 }
 
 func getDefaultInstallNamespace(rv1 *RegistryV1) string {
