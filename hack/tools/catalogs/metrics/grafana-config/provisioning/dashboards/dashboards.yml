@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      # Path to the directory where your dashboards are stored, inside the container.
+      path: /etc/grafana/dashboards

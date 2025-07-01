@@ -1,0 +1,10 @@
+apiVersion: 1
+datasources:
+  # A uniquely named datasource instance
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://host.docker.internal:9090
+    isDefault: true
+    uid: feq79nh78usjkb
+

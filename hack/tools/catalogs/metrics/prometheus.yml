@@ -1,0 +1,20 @@
+# prometheus.yml
+
+# Global configurations
+global:
+  scrape_interval: 15s # How frequently to scrape targets by default
+
+# A list of scrape configurations
+scrape_configs:
+  # Job 1: Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Job 2: Scrape your custom Go application
+  - job_name: 'catalog-metrics'
+    static_configs:
+      # IMPORTANT: From inside the Docker container, 'localhost' refers to the container itself.
+      # To reach a service running on your actual machine (the Docker host), you must use
+      # 'host.docker.internal'. This is a special DNS name that Docker provides.
+      - targets: ['host.docker.internal:8088']

@@ -1,0 +1,1001 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "description": "Packages / Catalog",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count(count by (catalog, package) (catalog_bundle_total{catalog=\"$catalog\"})) by (catalog)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Number of Packages",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "description": "Number of Bundles per Catalog",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (catalog) (catalog_bundle_total{catalog=\"$catalog\"})",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Number of Bundles",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 3
+      },
+      "id": 9,
+      "options": {
+        "displayMode": "gradient",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count(count by (catalog, package) (bundle_all_namespaces_support_total{catalog=\"$catalog\"})) by (catalog)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "AllNamespaces",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count(count by (catalog, package) (bundle_single_namespace_support_total{catalog=\"$catalog\"})) by (catalog)",
+          "format": "time_series",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "SingleNamespace",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (catalog, package) (bundle_own_namespace_support_total{catalog=\"$catalog\"})) by (catalog)",
+          "format": "time_series",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "OwnNamespace",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (catalog, package) (bundle_multi_namespace_support_total{catalog=\"$catalog\"})) by (catalog)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "MultiNamespace",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (catalog, package) (bundle_no_all_namespaces_support_total{catalog=\"$catalog\"})) by (catalog)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "No AllNamespaces",
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (catalog, package) (catalog_bundle_total{catalog=\"$catalog\"})) by (catalog)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Total",
+          "range": true,
+          "refId": "F"
+        }
+      ],
+      "title": "Install Mode",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 11
+      },
+      "id": 10,
+      "options": {
+        "displayMode": "gradient",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count(count by (catalog, package) (bundle_has_validating_webhooks_total{catalog=\"$catalog\"} == 1 or bundle_has_mutating_webhooks_total{catalog=\"$catalog\"} or bundle_has_conversion_webhooks_total{catalog=\"$catalog\"})) by (catalog)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "Webhooks",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count(count by (catalog, package) (bundle_has_v0_operator_condition_rbac_total{catalog=\"$catalog\"} == 1)) by (catalog)",
+          "format": "time_series",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "OperatorCondition RBAC",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count(count by (catalog, package) (bundle_has_api_service_total{catalog=\"$catalog\"} == 1)) by (catalog)",
+          "format": "time_series",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "APIServices",
+          "range": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (catalog, package) (bundle_no_all_namespaces_support_total{catalog=\"$catalog\"} == 1)) by (catalog)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "No AllNamespaces",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (catalog, package) (bundle_has_package_required_total{catalog=\"$catalog\"} == 1 or bundle_has_gvk_required_property_total{catalog=\"$catalog\"} == 1)) by (catalog)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Dependencies",
+          "range": true,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (catalog, package) (bundle_supports_v1_total{catalog=\"$catalog\"} == 1)) by (catalog)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "V1 Support",
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count(count by (catalog, package) (bundle_supports_v1_techpreview_total{catalog=\"$catalog\"} == 1)) by (catalog)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "v1 TP Support",
+          "range": true,
+          "refId": "F"
+        }
+      ],
+      "title": "V1 Support Metrics",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "id": 8,
+      "options": {
+        "displayMode": "gradient",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count by (catalog) (\n  count by (catalog, package) (\n    bundle_has_gvk_required_property_total{catalog=\"$catalog\"} == 1\n  )\n)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "GVK Required",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count by (catalog) (\n  count by (catalog, package) (\n    bundle_has_package_required_total{catalog=\"$catalog\"} == 1\n  )\n)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Package Required",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count by (catalog) (\n  count by (catalog, package) (\n    bundle_has_package_required_total{catalog=\"$catalog\"} == 1 or bundle_has_gvk_required_property_total{catalog=\"$catalog\"} == 1\n  )\n)",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Total",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Packages with Dependencies",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "bundle_has_gvk_required_property_total",
+            "renamePattern": "Requires GVK"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "bundle_has_package_required_total",
+            "renamePattern": "Requires Package"
+          }
+        }
+      ],
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "id": 4,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count by (catalog, __name__) (\n  sum by (catalog, package, __name__) (\n    bundle_supports_feature_disconnected_total{catalog=\"$catalog\"} == 1\n    or\n    bundle_supports_feature_fips_compliant_total{catalog=\"$catalog\"} == 1\n    or\n    bundle_supports_feature_proxy_aware_total{catalog=\"$catalog\"} == 1\n    or\n    bundle_supports_feature_tls_profiles_total{catalog=\"$catalog\"} == 1\n    or\n    bundle_supports_feature_token_auth_aws_total{catalog=\"$catalog\"} == 1\n    or\n    bundle_supports_feature_token_auth_azure_total{catalog=\"$catalog\"} == 1\n    or\n    bundle_supports_feature_token_auth_gcp_total{catalog=\"$catalog\"} == 1\n  )\n)",
+          "format": "time_series",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "{{__name__}}",
+          "range": false,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Feature Support",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "bundle_supports_feature_disconnected_total",
+            "renamePattern": "Disconnected"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "bundle_supports_feature_fips_compliant_total",
+            "renamePattern": "FIPS Compliant"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "bundle_supports_feature_proxy_aware_total",
+            "renamePattern": "Proxy Aware"
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 2,
+        "x": 0,
+        "y": 36
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "count by (catalog, __name__) (\n  sum by (catalog, package, __name__) (\n    bundle_has_api_service_total{catalog=\"$catalog\"} == 1\n  )\n) or (\n  0 * count by (catalog) (catalog_bundle_total{catalog=\"$catalog\"})\n)",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Pacakges with API Services",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [
+            {
+              "options": {
+                "bundle_has_validating_webhooks_total": {
+                  "index": 0,
+                  "text": "dfadad"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 10,
+        "x": 2,
+        "y": 36
+      },
+      "id": 5,
+      "options": {
+        "displayMode": "gradient",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count by (catalog) (\n  count by (catalog, package) (\n    bundle_has_validating_webhooks_total{catalog=\"$catalog\"} == 1\n  )\n)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "Validating",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count by (catalog) (\n  count by (catalog, package) (\n    bundle_has_mutating_webhooks_total{catalog=\"$catalog\"} == 1\n  )\n)",
+          "format": "time_series",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "Mutating",
+          "range": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count by (catalog) (\n  count by (catalog, package) (\n    bundle_has_conversion_webhooks_total{catalog=\"$catalog\"} == 1\n  )\n)",
+          "format": "time_series",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "Conversion",
+          "range": false,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "expr": "count by (catalog) (\n  count by (catalog, package) (\n    bundle_has_validating_webhooks_total{catalog=\"$catalog\"} == 1\n    or\n    bundle_has_mutating_webhooks_total{catalog=\"$catalog\"} == 1\n    or\n    bundle_has_conversion_webhooks_total{catalog=\"$catalog\"} == 1\n  )\n)",
+          "format": "time_series",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Total",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Packages with Webhooks",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      },
+      "id": 7,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count by (catalog, __name__) (\n  sum by (catalog, package, __name__) (\n    bundle_has_v0_operator_condition_rbac_total{catalog=\"$catalog\"} == 1\n    or\n    bundle_has_v0_subscription_rbac_total{catalog=\"$catalog\"} == 1\n  )\n)",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "{{__name__}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Has v0 RBAC",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "bundle_has_v0_subscription_rbac_total",
+            "renamePattern": "Has Subscription RBAC"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "bundle_has_v0_operator_condition_rbac_total",
+            "renamePattern": "Has OperatorCondition RBAC"
+          }
+        }
+      ],
+      "type": "barchart"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "definition": "label_values(catalog)",
+        "label": "catalog",
+        "name": "catalog",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(catalog)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Catalog Metrics",
+  "uid": "f4fd8a67-f669-4b37-8586-e15dd7c99d3d",
+  "version": 25
+}

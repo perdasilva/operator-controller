@@ -1,0 +1,857 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 2,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 3,
+        "x": 0,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(catalog_bundle_total{catalog=\"$catalog\", package=\"$package\"})",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "# Bundles",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "index": 0,
+                  "text": "0"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 3,
+        "x": 3,
+        "y": 0
+      },
+      "id": 5,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(bundle_supports_v1_total{catalog=\"$catalog\", package=\"$package\"})/ sum(catalog_bundle_total{catalog=\"$catalog\", package=\"$package\"})",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "v1 support coverage",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "index": 1,
+                  "text": "0"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 3,
+        "x": 6,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(bundle_supports_v1_techpreview_total{catalog=\"$catalog\", package=\"$package\"}) / sum(catalog_bundle_total{catalog=\"$catalog\", package=\"$package\"})",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "v1 TP support coverage",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 3,
+        "x": 9,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(bundle_has_validating_webhooks_total{catalog=\"$catalog\", package=\"$package\"} or bundle_has_mutating_webhooks_total{catalog=\"$catalog\", package=\"$package\"} or bundle_has_conversion_webhooks_total{catalog=\"$catalog\", package=\"$package\"}) or (\n  0 * count by (catalog, package) (catalog_bundle_total{catalog=\"$catalog\", package=\"$package\"})\n)",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Bundles w/ Webhooks",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "dark-red",
+                  "index": 1,
+                  "text": "No"
+                },
+                "1": {
+                  "color": "dark-green",
+                  "index": 0,
+                  "text": "Yes"
+                }
+              },
+              "type": "value"
+            },
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "color": "dark-red",
+                  "index": 2,
+                  "text": "No"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "id": 1,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "{__name__=\"catalog_bundle_total\", bundle=\"hpe-ezmeral-csi-operator.v1.0.9\", catalog=\"certified-operator-index-v4.19\", instance=\"host.docker.internal:8088\", job=\"catalog-metrics\", package=\"hpe-ezmeral-csi-operator\"}"
+          }
+        ]
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "catalog_bundle_total{catalog=\"$catalog\", package=\"$package\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "(bundle_all_namespaces_support_total{catalog=\"$catalog\", package=\"$package\"})",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "AllNamespaces",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "bundle_single_namespace_support_total{catalog=\"$catalog\", package=\"$package\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "SingleNamespace",
+          "range": false,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "bundle_own_namespace_support_total{catalog=\"$catalog\", package=\"$package\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "OwnNamespace",
+          "range": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "bundle_multi_namespace_support_total{catalog=\"$catalog\", package=\"$package\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "MultiNamespace",
+          "range": false,
+          "refId": "E"
+        }
+      ],
+      "title": "Install Mode Support",
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "bundle",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Value #A": true,
+              "Value #D": false,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "__name__ 4": true,
+              "__name__ 5": true,
+              "catalog 1": true,
+              "catalog 2": true,
+              "catalog 3": true,
+              "catalog 4": true,
+              "catalog 5": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "instance 4": true,
+              "instance 5": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "job 4": true,
+              "job 5": true,
+              "package 1": true,
+              "package 2": true,
+              "package 3": true,
+              "package 4": true,
+              "package 5": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "Time 1": 5,
+              "Time 2": 11,
+              "Time 3": 17,
+              "Time 4": 23,
+              "Value #A": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "Value #D": 4,
+              "__name__ 1": 6,
+              "__name__ 2": 12,
+              "__name__ 3": 18,
+              "__name__ 4": 24,
+              "bundle": 0,
+              "catalog 1": 7,
+              "catalog 2": 13,
+              "catalog 3": 19,
+              "catalog 4": 25,
+              "instance 1": 8,
+              "instance 2": 14,
+              "instance 3": 20,
+              "instance 4": 26,
+              "job 1": 9,
+              "job 2": 15,
+              "job 3": 21,
+              "job 4": 27,
+              "package 1": 10,
+              "package 2": 16,
+              "package 3": 22,
+              "package 4": 28
+            },
+            "renameByName": {
+              "Value #B": "AllNamespaces",
+              "Value #C": "OwnNamespace",
+              "Value #D": "SingleNamespace",
+              "Value #E": "MultiNamespace",
+              "bundle": "Bundle"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "feq79nh78usjkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "dark-red",
+                  "index": 1,
+                  "text": "No"
+                },
+                "1": {
+                  "color": "dark-green",
+                  "index": 0,
+                  "text": "Yes"
+                }
+              },
+              "type": "value"
+            },
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "color": "dark-red",
+                  "index": 2,
+                  "text": "No"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "id": 2,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "{__name__=\"catalog_bundle_total\", bundle=\"hpe-ezmeral-csi-operator.v1.0.9\", catalog=\"certified-operator-index-v4.19\", instance=\"host.docker.internal:8088\", job=\"catalog-metrics\", package=\"hpe-ezmeral-csi-operator\"}"
+          }
+        ]
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "catalog_bundle_total{catalog=\"$catalog\", package=\"$package\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "bundle_has_validating_webhooks_total{catalog=\"$catalog\", package=\"$package\"} or (\n  0 * count by (catalog, package, bundle) (catalog_bundle_total{catalog=\"$catalog\", package=\"$package\"})\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "SingleNamespace",
+          "range": false,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "bundle_has_mutating_webhooks_total{catalog=\"$catalog\", package=\"$package\"} or (\n  0 * count by (catalog, package, bundle) (catalog_bundle_total{catalog=\"$catalog\", package=\"$package\"})\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "OwnNamespace",
+          "range": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "feq79nh78usjkb"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "bundle_has_conversion_webhooks_total{catalog=\"$catalog\", package=\"$package\"} or (\n  0 * count by (catalog, package, bundle) (catalog_bundle_total{catalog=\"$catalog\", package=\"$package\"})\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "MultiNamespace",
+          "range": false,
+          "refId": "E"
+        }
+      ],
+      "title": "Webhook Support",
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "bundle",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Value #A": true,
+              "Value #D": false,
+              "__name__": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "__name__ 4": true,
+              "__name__ 5": true,
+              "catalog 1": true,
+              "catalog 2": true,
+              "catalog 3": true,
+              "catalog 4": true,
+              "catalog 5": true,
+              "instance": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "instance 4": true,
+              "instance 5": true,
+              "job": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "job 4": true,
+              "job 5": true,
+              "package 1": true,
+              "package 2": true,
+              "package 3": true,
+              "package 4": true,
+              "package 5": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "Time 1": 5,
+              "Time 2": 8,
+              "Time 3": 11,
+              "Time 4": 14,
+              "Value #A": 1,
+              "Value #C": 3,
+              "Value #D": 2,
+              "Value #E": 4,
+              "__name__": 17,
+              "bundle": 0,
+              "catalog 1": 6,
+              "catalog 2": 9,
+              "catalog 3": 12,
+              "catalog 4": 15,
+              "instance": 18,
+              "job": 19,
+              "package 1": 7,
+              "package 2": 10,
+              "package 3": 13,
+              "package 4": 16
+            },
+            "renameByName": {
+              "Value #B": "AllNamespaces",
+              "Value #C": "Mutating",
+              "Value #D": "Validating",
+              "Value #E": "Conversion",
+              "bundle": "Bundle"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "certified-operator-index-v4.19",
+          "value": "certified-operator-index-v4.19"
+        },
+        "definition": "label_values(catalog)",
+        "label": "catalog",
+        "name": "catalog",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(catalog)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "netscaler-adm-agent-operator",
+          "value": "netscaler-adm-agent-operator"
+        },
+        "definition": "label_values({catalog=\"$catalog\"},package)",
+        "label": "package",
+        "name": "package",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values({catalog=\"$catalog\"},package)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Package",
+  "uid": "65c0d64a-3923-4696-92e9-60e3df0eb067",
+  "version": 20
+}
