@@ -56,6 +56,13 @@ func (mp *mockPreflight) Upgrade(context.Context, []client.Object) error {
 	return mp.upgradeErr
 }
 
+type mockHelmReleaseToObjectsConverter struct {
+}
+
+func (mockHelmReleaseToObjectsConverter) GetObjectsFromRelease(*release.Release) ([]client.Object, error) {
+	return nil, nil
+}
+
 type mockActionGetter struct {
 	actionClientForErr error
 	getClientErr       error
@@ -251,7 +258,7 @@ func TestApply_Installation(t *testing.T) {
 			ActionClientGetter:            mockAcg,
 			Preflights:                    []applier.Preflight{mockPf},
 			BundleToHelmChartConverter:    &convert.BundleToHelmChartConverter{},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		objs, state, err := helmApplier.Apply(context.TODO(), validFS, testCE, testObjectLabels, testStorageLabels)
@@ -269,7 +276,7 @@ func TestApply_Installation(t *testing.T) {
 		helmApplier := applier.Helm{
 			ActionClientGetter:            mockAcg,
 			BundleToHelmChartConverter:    &convert.BundleToHelmChartConverter{},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		objs, state, err := helmApplier.Apply(context.TODO(), validFS, testCE, testObjectLabels, testStorageLabels)
@@ -290,7 +297,7 @@ func TestApply_Installation(t *testing.T) {
 		helmApplier := applier.Helm{
 			ActionClientGetter:            mockAcg,
 			BundleToHelmChartConverter:    &convert.BundleToHelmChartConverter{},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		objs, state, err := helmApplier.Apply(context.TODO(), validFS, testCE, testObjectLabels, testStorageLabels)
@@ -335,7 +342,7 @@ func TestApply_InstallationWithPreflightPermissionsEnabled(t *testing.T) {
 			Preflights:                    []applier.Preflight{mockPf},
 			PreAuthorizer:                 &mockPreAuthorizer{nil, nil},
 			BundleToHelmChartConverter:    &convert.BundleToHelmChartConverter{},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		objs, state, err := helmApplier.Apply(context.TODO(), validFS, testCE, testObjectLabels, testStorageLabels)
@@ -415,7 +422,7 @@ func TestApply_InstallationWithPreflightPermissionsEnabled(t *testing.T) {
 			ActionClientGetter:            mockAcg,
 			PreAuthorizer:                 &mockPreAuthorizer{nil, nil},
 			BundleToHelmChartConverter:    &convert.BundleToHelmChartConverter{},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		// Use a ClusterExtension with valid Spec fields.
@@ -472,7 +479,7 @@ func TestApply_Upgrade(t *testing.T) {
 			ActionClientGetter:            mockAcg,
 			Preflights:                    []applier.Preflight{mockPf},
 			BundleToHelmChartConverter:    &convert.BundleToHelmChartConverter{},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		objs, state, err := helmApplier.Apply(context.TODO(), validFS, testCE, testObjectLabels, testStorageLabels)
@@ -495,7 +502,7 @@ func TestApply_Upgrade(t *testing.T) {
 		helmApplier := applier.Helm{
 			ActionClientGetter: mockAcg, Preflights: []applier.Preflight{mockPf},
 			BundleToHelmChartConverter:    &convert.BundleToHelmChartConverter{},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		objs, state, err := helmApplier.Apply(context.TODO(), validFS, testCE, testObjectLabels, testStorageLabels)
@@ -519,7 +526,7 @@ func TestApply_Upgrade(t *testing.T) {
 			ActionClientGetter:            mockAcg,
 			Preflights:                    []applier.Preflight{mockPf},
 			BundleToHelmChartConverter:    &convert.BundleToHelmChartConverter{},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		objs, state, err := helmApplier.Apply(context.TODO(), validFS, testCE, testObjectLabels, testStorageLabels)
@@ -540,7 +547,7 @@ func TestApply_Upgrade(t *testing.T) {
 		helmApplier := applier.Helm{
 			ActionClientGetter:            mockAcg,
 			BundleToHelmChartConverter:    &convert.BundleToHelmChartConverter{},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		objs, state, err := helmApplier.Apply(context.TODO(), validFS, testCE, testObjectLabels, testStorageLabels)
@@ -571,7 +578,7 @@ func TestApply_InstallationWithSingleOwnNamespaceInstallSupportEnabled(t *testin
 					return nil, nil
 				},
 			},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		testExt := &ocv1.ClusterExtension{
@@ -605,7 +612,7 @@ func TestApply_RegistryV1ToChartConverterIntegration(t *testing.T) {
 					return nil, nil
 				},
 			},
-			HelmReleaseToObjectsConverter: applier.HelmReleaseToObjectsConverter{Mock: true},
+			HelmReleaseToObjectsConverter: mockHelmReleaseToObjectsConverter{},
 		}
 
 		_, _, _ = helmApplier.Apply(context.TODO(), validFS, testCE, testObjectLabels, testStorageLabels)

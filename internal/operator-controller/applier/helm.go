@@ -36,7 +36,6 @@ type BundleToHelmChartConverter interface {
 }
 
 type HelmReleaseToObjectsConverter struct {
-	Mock bool
 }
 
 type HelmReleaseToObjectsConverterInterface interface {
@@ -44,7 +43,7 @@ type HelmReleaseToObjectsConverterInterface interface {
 }
 
 func (h HelmReleaseToObjectsConverter) GetObjectsFromRelease(rel *release.Release) ([]client.Object, error) {
-	if rel == nil || h.Mock {
+	if rel == nil {
 		return nil, nil
 	}
 
