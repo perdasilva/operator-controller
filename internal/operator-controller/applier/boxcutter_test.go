@@ -22,8 +22,9 @@ import (
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/applier"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/bundle"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/controllers"
-	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle"
+	regv1 "github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/render"
 	testutils "github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/util/testing"
 )
@@ -39,7 +40,7 @@ func Test_RegistryV1BundleRenderer_Render_Success(t *testing.T) {
 	r := applier.RegistryV1BundleRenderer{
 		BundleRenderer: render.BundleRenderer{
 			ResourceGenerators: []render.ResourceGenerator{
-				func(rv1 *bundle.RegistryV1, opts render.Options) ([]client.Object, error) {
+				func(rv1 *regv1.RegistryV1, opts render.Options) ([]client.Object, error) {
 					require.Equal(t, []string{""}, opts.TargetNamespaces)
 					require.Equal(t, "some-namespace", opts.InstallNamespace)
 					return expectedObjs, nil
@@ -47,9 +48,8 @@ func Test_RegistryV1BundleRenderer_Render_Success(t *testing.T) {
 			},
 		},
 	}
-	bundleFS := testutils.NewBundleFS()
 
-	objs, err := r.Render(bundleFS, &ocv1.ClusterExtension{
+	objs, err := r.Render(testutils.NewBundleFS(), &ocv1.ClusterExtension{
 		Spec: ocv1.ClusterExtensionSpec{
 			Namespace: "some-namespace",
 		},
@@ -63,15 +63,14 @@ func Test_RegistryV1BundleRenderer_Render_Failure(t *testing.T) {
 	r := applier.RegistryV1BundleRenderer{
 		BundleRenderer: render.BundleRenderer{
 			ResourceGenerators: []render.ResourceGenerator{
-				func(rv1 *bundle.RegistryV1, opts render.Options) ([]client.Object, error) {
+				func(rv1 *regv1.RegistryV1, opts render.Options) ([]client.Object, error) {
 					return expectedObjs, fmt.Errorf("some-error")
 				},
 			},
 		},
 	}
-	bundleFS := testutils.NewBundleFS()
 
-	objs, err := r.Render(bundleFS, &ocv1.ClusterExtension{
+	objs, err := r.Render(testutils.NewBundleFS(), &ocv1.ClusterExtension{
 		Spec: ocv1.ClusterExtensionSpec{
 			Namespace: "some-namespace",
 		},
@@ -495,11 +494,11 @@ func TestBoxcutter_Apply(t *testing.T) {
 				RevisionGenerator: tc.mockBuilder,
 			}
 
-			// We need a dummy fs.FS
-			testFS := fstest.MapFS{}
+			// We need a dummy bundle
+			dummyBundle := bundle.FromFS(fstest.MapFS{})
 
 			// Execute
-			installSucceeded, installStatus, err := boxcutter.Apply(t.Context(), testFS, ext, nil, nil)
+			installSucceeded, installStatus, err := boxcutter.Apply(t.Context(), dummyBundle, ext, nil, nil)
 
 			// Assert
 			if tc.expectedErr != "" {

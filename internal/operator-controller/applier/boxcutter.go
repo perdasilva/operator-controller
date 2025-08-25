@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/bundle"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/controllers"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle/source"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/render"
@@ -101,8 +102,8 @@ type Boxcutter struct {
 	Preflights        []Preflight
 }
 
-func (bc *Boxcutter) Apply(ctx context.Context, contentFS fs.FS, ext *ocv1.ClusterExtension, objectLabels, revisionAnnotations map[string]string) (bool, string, error) {
-	return bc.apply(ctx, contentFS, ext, objectLabels, revisionAnnotations)
+func (bc *Boxcutter) Apply(ctx context.Context, bundle bundle.Bundle, ext *ocv1.ClusterExtension, objectLabels, revisionAnnotations map[string]string) (bool, string, error) {
+	return bc.apply(ctx, bundle, ext, objectLabels, revisionAnnotations)
 }
 
 func (bc *Boxcutter) getObjects(rev *ocv1.ClusterExtensionRevision) []client.Object {
@@ -115,9 +116,9 @@ func (bc *Boxcutter) getObjects(rev *ocv1.ClusterExtensionRevision) []client.Obj
 	return objs
 }
 
-func (bc *Boxcutter) apply(ctx context.Context, contentFS fs.FS, ext *ocv1.ClusterExtension, objectLabels, revisionAnnotations map[string]string) (bool, string, error) {
+func (bc *Boxcutter) apply(ctx context.Context, bundle bundle.Bundle, ext *ocv1.ClusterExtension, objectLabels, revisionAnnotations map[string]string) (bool, string, error) {
 	// Generate desired revision
-	desiredRevision, err := bc.RevisionGenerator.GenerateRevision(contentFS, ext, objectLabels, revisionAnnotations)
+	desiredRevision, err := bc.RevisionGenerator.GenerateRevision(bundle.FS(), ext, objectLabels, revisionAnnotations)
 	if err != nil {
 		return false, "", err
 	}
