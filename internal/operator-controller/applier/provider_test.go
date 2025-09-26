@@ -154,6 +154,90 @@ func Test_RegistryV1HelmChartProvider_Get_WebhooksWithCertProvider(t *testing.T)
 	require.NoError(t, err)
 }
 
+func Test_RegistryV1HelmChartProvider_Get_SingleOwnNamespace(t *testing.T) {
+	t.Run("rejects bundles without AllNamespaces install mode when Single/OwnNamespace install mode support is disabled", func(t *testing.T) {
+		provider := applier.RegistryV1HelmChartProvider{
+			IsSingleOwnNamespaceEnabled: false,
+		}
+		b := source.FromBundle(
+			bundle.RegistryV1{
+				CSV: MakeCSV(
+					WithInstallModeSupportFor(v1alpha1.InstallModeTypeSingleNamespace),
+				),
+			},
+		)
+		_, err := provider.Get(b, &ocv1.ClusterExtension{
+			Spec: ocv1.ClusterExtensionSpec{
+				Namespace: "install-namespace",
+			},
+		})
+		require.Equal(t, "unsupported bundle: bundle does not support AllNamespaces install mode", err.Error())
+	})
+	t.Run("accepts bundles without AllNamespaces install mode and with SingleNamespace support when Single/OwnNamespace install mode support is enabled", func(t *testing.T) {
+		featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.SingleOwnNamespaceInstallSupport, true)
+		provider := applier.RegistryV1HelmChartProvider{
+			IsSingleOwnNamespaceEnabled: true,
+		}
+		b := source.FromBundle(
+			bundle.RegistryV1{
+				CSV: MakeCSV(
+					WithInstallModeSupportFor(v1alpha1.InstallModeTypeSingleNamespace),
+				),
+			},
+		)
+		_, err := provider.Get(b, &ocv1.ClusterExtension{
+			Spec: ocv1.ClusterExtensionSpec{
+				Namespace: "install-namespace",
+				Config: &ocv1.ClusterExtensionConfig{
+					ConfigType: ocv1.ClusterExtensionConfigTypeInline,
+					Inline: &apiextensionsv1.JSON{
+						Raw: []byte(`{"watchNamespace": "some-namespace"}`),
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+	})
+	t.Run("accepts bundles without AllNamespaces install mode and with OwnNamespace support when Single/OwnNamespace install mode support is enabled", func(t *testing.T) {
+		featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.SingleOwnNamespaceInstallSupport, true)
+		provider := applier.RegistryV1HelmChartProvider{
+			IsSingleOwnNamespaceEnabled: true,
+		}
+		b := source.FromBundle(
+			bundle.RegistryV1{
+				CSV: MakeCSV(
+					WithInstallModeSupportFor(v1alpha1.InstallModeTypeOwnNamespace),
+				),
+			},
+		)
+		_, err := provider.Get(b, &ocv1.ClusterExtension{
+			Spec: ocv1.ClusterExtensionSpec{
+				Namespace: "install-namespace",
+			},
+		})
+		require.NoError(t, err)
+	})
+	t.Run("rejects bundles without AllNamespaces, SingleNamespace, or OwnNamespace install mode support when Single/OwnNamespace install mode support is enabled", func(t *testing.T) {
+		featuregatetesting.SetFeatureGateDuringTest(t, features.OperatorControllerFeatureGate, features.SingleOwnNamespaceInstallSupport, true)
+		provider := applier.RegistryV1HelmChartProvider{
+			IsSingleOwnNamespaceEnabled: true,
+		}
+		b := source.FromBundle(
+			bundle.RegistryV1{
+				CSV: MakeCSV(
+					WithInstallModeSupportFor(v1alpha1.InstallModeTypeMultiNamespace),
+				),
+			},
+		)
+		_, err := provider.Get(b, &ocv1.ClusterExtension{
+			Spec: ocv1.ClusterExtensionSpec{
+				Namespace: "install-namespace",
+			},
+		})
+		require.Equal(t, "unsupported bundle: bundle must support at least one of [AllNamespaces SingleNamespace OwnNamespace]", err.Error())
+	})
+}
+
 func Test_RegistryV1HelmChartProvider_Get_BundleRendererIntegration(t *testing.T) {
 	expectedInstallNamespace := "install-namespace"
 	expectedCertProvider := FakeCertProvider{}

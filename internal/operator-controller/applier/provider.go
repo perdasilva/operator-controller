@@ -6,6 +6,9 @@ import (
 	"fmt"
 
 	"helm.sh/helm/v3/pkg/chart"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/rukpak/bundle/source"
@@ -13,9 +16,10 @@ import (
 )
 
 type RegistryV1HelmChartProvider struct {
-	BundleRenderer          render.BundleRenderer
-	CertificateProvider     render.CertificateProvider
-	IsWebhookSupportEnabled bool
+	BundleRenderer              render.BundleRenderer
+	CertificateProvider         render.CertificateProvider
+	IsWebhookSupportEnabled     bool
+	IsSingleOwnNamespaceEnabled bool
 }
 
 func (r *RegistryV1HelmChartProvider) Get(bundle source.BundleSource, ext *ocv1.ClusterExtension) (*chart.Chart, error) {
@@ -50,6 +54,31 @@ func (r *RegistryV1HelmChartProvider) Get(bundle source.BundleSource, ext *ocv1.
 
 	if r.CertificateProvider == nil && len(rv1.CSV.Spec.WebhookDefinitions) > 0 {
 		return nil, fmt.Errorf("unsupported bundle: webhookDefinitions are not supported")
+	}
+
+	installModes := sets.New(rv1.CSV.Spec.InstallModes...)
+
+	if !r.IsSingleOwnNamespaceEnabled && !installModes.Has(v1alpha1.InstallMode{Type: v1alpha1.InstallModeTypeAllNamespaces, Supported: true}) {
+		return nil, fmt.Errorf("unsupported bundle: bundle does not support AllNamespaces install mode")
+	}
+
+	if !installModes.Has(v1alpha1.InstallMode{Type: v1alpha1.InstallModeTypeAllNamespaces, Supported: true}) &&
+		!installModes.Has(v1alpha1.InstallMode{Type: v1alpha1.InstallModeTypeSingleNamespace, Supported: true}) &&
+		!installModes.Has(v1alpha1.InstallMode{Type: v1alpha1.InstallModeTypeOwnNamespace, Supported: true}) {
+		return nil, fmt.Errorf("unsupported bundle: bundle must support at least one of [AllNamespaces SingleNamespace OwnNamespace]")
+	}
+
+	if !r.IsSingleOwnNamespaceEnabled {
+		isAllNamespacesEnabled := false
+		for _, installMode := range rv1.CSV.Spec.InstallModes {
+			if installMode.Type == v1alpha1.InstallModeTypeAllNamespaces && installMode.Supported {
+				isAllNamespacesEnabled = true
+				break
+			}
+		}
+		if !isAllNamespacesEnabled {
+			return nil, fmt.Errorf("unsupported bundle: bundle does not support AllNamespaces install mode")
+		}
 	}
 
 	objs, err := r.BundleRenderer.Render(rv1, ext.Spec.Namespace, opts...)
