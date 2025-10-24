@@ -129,33 +129,25 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 		return ctrl.Result{}, fmt.Errorf("error ensuring teardown finalizer: %v", err)
 	}
 
-	// If the Available condition is not present, we are still rolling out the objects
-	inRollout := meta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterExtensionRevisionTypeAvailable) == nil
-	if inRollout {
-		if err := c.establishWatch(ctx, rev, revision); err != nil {
-			werr := fmt.Errorf("establish watch: %v", err)
-			// this error is very likely transient, so we should keep revision as progressing
-			rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonReconcileFailure, werr.Error())
-			return ctrl.Result{}, werr
-		}
-		rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonRolloutInProgress, "Revision is being rolled out.")
+	if err := c.establishWatch(ctx, rev, revision); err != nil {
+		werr := fmt.Errorf("establish watch: %v", err)
+		// this error is very likely transient, so we should keep revision as progressing
+		rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonReconcileFailure, werr.Error())
+		return ctrl.Result{}, werr
 	}
 
 	rres, err := c.RevisionEngine.Reconcile(ctx, *revision, opts...)
 	if err != nil {
-		if inRollout {
-			rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonRolloutError, err.Error())
-		} else {
-			// it is a probably transient error, and we do not know if the revision is available or not
-			// perhaps we should not report it at all, hoping that it is going to be mitigated in the next reconcile?
-			meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
-				Type:               ocv1.ClusterExtensionRevisionTypeAvailable,
-				Status:             metav1.ConditionUnknown,
-				Reason:             ocv1.ClusterExtensionRevisionReasonReconcileFailure,
-				Message:            err.Error(),
-				ObservedGeneration: rev.Generation,
-			})
-		}
+		rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonRolloutError, err.Error())
+		// it is a probably transient error, and we do not know if the revision is available or not
+		// perhaps we should not report it at all, hoping that it is going to be mitigated in the next reconcile?
+		meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
+			Type:               ocv1.ClusterExtensionRevisionTypeAvailable,
+			Status:             metav1.ConditionUnknown,
+			Reason:             ocv1.ClusterExtensionRevisionReasonReconcileFailure,
+			Message:            err.Error(),
+			ObservedGeneration: rev.Generation,
+		})
 		return ctrl.Result{}, fmt.Errorf("revision reconcile: %v", err)
 	}
 	l.Info("reconcile report", "report", rres.String())
@@ -165,20 +157,17 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 	if verr := rres.GetValidationError(); verr != nil {
 		l.Info("preflight error, retrying after 10s", "err", verr.String())
 
-		if inRollout {
-			// given that we retry, we are going to keep Progressing condition True
-			rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonRevisionValidationFailure, fmt.Sprintf("revision validation error: %s", verr))
-		} else {
-			// it is a probably transient error, and we do not know if the revision is available or not
-			// perhaps we should not report it at all, hoping that it is going to be mitigated in the next reconcile?
-			meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
-				Type:               ocv1.ClusterExtensionRevisionTypeAvailable,
-				Status:             metav1.ConditionUnknown,
-				Reason:             ocv1.ClusterExtensionRevisionReasonReconcileFailure,
-				Message:            fmt.Sprintf("revision validation error: %s", verr),
-				ObservedGeneration: rev.Generation,
-			})
-		}
+		// given that we retry, we are going to keep Progressing condition True
+		rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonRevisionValidationFailure, fmt.Sprintf("revision validation error: %s", verr))
+		// it is a probably transient error, and we do not know if the revision is available or not
+		// perhaps we should not report it at all, hoping that it is going to be mitigated in the next reconcile?
+		meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
+			Type:               ocv1.ClusterExtensionRevisionTypeAvailable,
+			Status:             metav1.ConditionUnknown,
+			Reason:             ocv1.ClusterExtensionRevisionReasonReconcileFailure,
+			Message:            fmt.Sprintf("revision validation error: %s", verr),
+			ObservedGeneration: rev.Generation,
+		})
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
@@ -186,20 +175,17 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 		if verr := pres.GetValidationError(); verr != nil {
 			l.Info("preflight error, retrying after 10s", "err", verr.String())
 
-			if inRollout {
-				// given that we retry, we are going to keep Progressing condition True
-				rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonPhaseValidationError, fmt.Sprintf("phase %d validation error: %s", i, verr))
-			} else {
-				// it is a probably transient error, and we do not know if the revision is available or not
-				// perhaps we should not report it at all, hoping that it is going to be mitigated in the next reconcile?
-				meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
-					Type:               ocv1.ClusterExtensionRevisionTypeAvailable,
-					Status:             metav1.ConditionUnknown,
-					Reason:             ocv1.ClusterExtensionRevisionReasonPhaseValidationError,
-					Message:            fmt.Sprintf("phase %d validation error: %s", i, verr),
-					ObservedGeneration: rev.Generation,
-				})
-			}
+			// given that we retry, we are going to keep Progressing condition True
+			rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonPhaseValidationError, fmt.Sprintf("phase %d validation error: %s", i, verr))
+			// it is a probably transient error, and we do not know if the revision is available or not
+			// perhaps we should not report it at all, hoping that it is going to be mitigated in the next reconcile?
+			meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
+				Type:               ocv1.ClusterExtensionRevisionTypeAvailable,
+				Status:             metav1.ConditionUnknown,
+				Reason:             ocv1.ClusterExtensionRevisionReasonPhaseValidationError,
+				Message:            fmt.Sprintf("phase %d validation error: %s", i, verr),
+				ObservedGeneration: rev.Generation,
+			})
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
@@ -214,17 +200,16 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 			l.Info("object collision error, retrying after 10s", "collisions", collidingObjs)
 			// collisions are probably stickier than phase roll out probe failures - so we'd probably want to set
 			// Progressing to false here due to the collision
-			if inRollout {
-				rev.MarkAsNotProgressing(ocv1.ClusterExtensionRevisionReasonObjectCollisions, fmt.Sprintf("revision object collisions in phase %d\n%s", i, strings.Join(collidingObjs, "\n\n")))
+			rev.MarkAsNotProgressing(ocv1.ClusterExtensionRevisionReasonObjectCollisions, fmt.Sprintf("revision object collisions in phase %d\n%s", i, strings.Join(collidingObjs, "\n\n")))
 
-				// NOTE(pedjak): not sure if we want to retry here - collisions are probably not transient?
-				return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-			}
+			// NOTE(pedjak): not sure if we want to retry here - collisions are probably not transient?
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 	}
 
-	if !rres.InTransistion() {
-		// we have rolled out all objects in all phases, not interested in probes here
+	if !rres.IsOnCluster() || !rres.IsToSpec() {
+		rev.MarkAsProgressing(ocv1.ClusterExtensionRevisionReasonRolloutInProgress, "Revision is being rolled out.")
+	} else if rres.IsOnCluster() {
 		rev.MarkAsNotProgressing(ocv1.ClusterExtensionRevisionReasonRolledOut, "Revision is rolled out.")
 	}
 
