@@ -265,7 +265,7 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 				// we probably want an AvailabilityProbeType and run through all of them independently of whether
 				// the revision is complete or not
 				pr := ores.Probes()[boxcutter.ProgressProbeType]
-				if pr.Success {
+				if pr.Status == machinerytypes.ProbeStatusTrue {
 					continue
 				}
 
