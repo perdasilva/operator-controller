@@ -55,16 +55,18 @@ var namespacedCollectionVerbs = []string{"create"}
 var clusterCollectionVerbs = []string{"list", "watch"}
 
 type rbacPreAuthorizer struct {
-	authorizer   authorizer.Authorizer
-	ruleResolver validation.AuthorizationRuleResolver
-	restMapper   meta.RESTMapper
+	authorizer    authorizer.Authorizer
+	ruleResolver  validation.AuthorizationRuleResolver
+	restMapper    meta.RESTMapper
+	boxcutterMode bool
 }
 
-func NewRBACPreAuthorizer(cl client.Client) PreAuthorizer {
+func NewRBACPreAuthorizer(cl client.Client, boxcutterMode bool) PreAuthorizer {
 	return &rbacPreAuthorizer{
-		authorizer:   newRBACAuthorizer(cl),
-		ruleResolver: newRBACRulesResolver(cl),
-		restMapper:   cl.RESTMapper(),
+		authorizer:    newRBACAuthorizer(cl),
+		ruleResolver:  newRBACRulesResolver(cl),
+		restMapper:    cl.RESTMapper(),
+		boxcutterMode: boxcutterMode,
 	}
 }
 
@@ -85,7 +87,7 @@ func (a *rbacPreAuthorizer) PreAuthorize(ctx context.Context, ext *ocv1.ClusterE
 		return nil, err
 	}
 	manifestManager := &user.DefaultInfo{Name: fmt.Sprintf("system:serviceaccount:%s:%s", ext.Spec.Namespace, ext.Spec.ServiceAccount.Name)}
-	attributesRecords := dm.asAuthorizationAttributesRecordsForUser(manifestManager, ext)
+	attributesRecords := dm.asAuthorizationAttributesRecordsForUser(manifestManager, ext, a.boxcutterMode)
 
 	var preAuthEvaluationErrors []error
 	missingRules, err := a.authorizeAttributesRecords(ctx, attributesRecords)
@@ -316,7 +318,7 @@ func (dm *decodedManifest) rbacObjects() []client.Object {
 	return objects
 }
 
-func (dm *decodedManifest) asAuthorizationAttributesRecordsForUser(manifestManager user.Info, ext *ocv1.ClusterExtension) []authorizer.AttributesRecord {
+func (dm *decodedManifest) asAuthorizationAttributesRecordsForUser(manifestManager user.Info, ext *ocv1.ClusterExtension, boxcutterMode bool) []authorizer.AttributesRecord {
 	var attributeRecords []authorizer.AttributesRecord
 
 	for gvr, keys := range dm.gvrs {
@@ -374,6 +376,16 @@ func (dm *decodedManifest) asAuthorizationAttributesRecordsForUser(manifestManag
 				ResourceRequest: true,
 				Verb:            verb,
 			})
+			if boxcutterMode {
+				attributeRecords = append(attributeRecords, authorizer.AttributesRecord{
+					User:            manifestManager,
+					APIGroup:        ext.GroupVersionKind().Group,
+					APIVersion:      ext.GroupVersionKind().Version,
+					Resource:        "clusterextensionrevisions/finalizers",
+					ResourceRequest: true,
+					Verb:            verb,
+				})
+			}
 		}
 	}
 	return attributeRecords

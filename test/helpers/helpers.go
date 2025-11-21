@@ -88,6 +88,17 @@ func CreateClusterRoleAndBindingForSA(ctx context.Context, name string, sa *core
 			},
 			{
 				APIGroups: []string{
+					"olm.operatorframework.io",
+				},
+				Resources: []string{
+					"clusterextensionrevisions/finalizers",
+				},
+				Verbs: []string{
+					"update",
+				},
+			},
+			{
+				APIGroups: []string{
 					"",
 				},
 				Resources: []string{

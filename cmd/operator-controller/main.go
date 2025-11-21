@@ -40,12 +40,10 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
-	"pkg.package-operator.run/boxcutter/machinery"
 	"pkg.package-operator.run/boxcutter/managedcache"
-	"pkg.package-operator.run/boxcutter/ownerhandling"
-	"pkg.package-operator.run/boxcutter/validation"
 	ctrl "sigs.k8s.io/controller-runtime"
 	crcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
@@ -553,6 +551,12 @@ func setupBoxcutter(
 		return fmt.Errorf("unable to create helm action client getter: %w", err)
 	}
 
+	// determine if PreAuthorizer should be enabled based on feature gate
+	var preAuth authorization.PreAuthorizer
+	if features.OperatorControllerFeatureGate.Enabled(features.PreflightPermissions) {
+		preAuth = authorization.NewRBACPreAuthorizer(mgr.GetClient(), true)
+	}
+
 	// Register a no-op finalizer handler for cleanup-contentmanager-cache.
 	// This finalizer was added by the Helm applier for ClusterExtensions created
 	// before BoxcutterRuntime was enabled. Boxcutter doesn't use contentmanager,
@@ -578,6 +582,7 @@ func setupBoxcutter(
 		Scheme:            mgr.GetScheme(),
 		RevisionGenerator: rg,
 		Preflights:        preflights,
+		PreAuthorizer:     preAuth,
 		FieldOwner:        fmt.Sprintf("%s/clusterextension-controller", fieldOwnerPrefix),
 	}
 	ceReconciler.RevisionStatesGetter = &controllers.BoxcutterRevisionStatesGetter{Reader: mgr.GetClient()}
@@ -610,20 +615,57 @@ func setupBoxcutter(
 		return fmt.Errorf("unable to add tracking cache to manager: %v", err)
 	}
 
+	tokenGetter := authentication.NewTokenGetter(coreClient, authentication.WithExpirationDuration(1*time.Hour))
+	clientRestConfigMapper := func(ctx context.Context, o client.Object, c *rest.Config) (*rest.Config, error) {
+		if c == nil {
+			return nil, fmt.Errorf("rest config is nil")
+		}
+		if o == nil {
+			return nil, fmt.Errorf("object is nil")
+		}
+		cExtRev, ok := o.(*ocv1.ClusterExtensionRevision)
+		if !ok {
+			return nil, fmt.Errorf("object is not a ClusterExtensionRevision")
+		}
+		saConfig := rest.AnonymousClientConfig(c)
+		saConfig.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+			return &authentication.TokenInjectingRoundTripper{
+				Tripper:     rt,
+				TokenGetter: tokenGetter,
+				Key: k8stypes.NamespacedName{
+					Name:      cExtRev.Spec.ServiceAccountRef.Name,
+					Namespace: cExtRev.Spec.ServiceAccountRef.Namespace,
+				},
+			}
+		})
+		return saConfig, nil
+	}
+
+	revisionEngineGetter := &controllers.RevisionEngineGetter{
+		BaseRestConfig:     mgr.GetConfig(),
+		ClientConfigMapper: clientRestConfigMapper,
+		DiscoveryClient:    discoveryClient,
+		TrackingCache:      trackingCache,
+		Scheme:             mgr.GetScheme(),
+		RESTMapper:         mgr.GetRESTMapper(),
+		FieldOwnerPrefix:   fieldOwnerPrefix,
+	}
+
 	if err = (&controllers.ClusterExtensionRevisionReconciler{
-		Client: mgr.GetClient(),
-		RevisionEngine: machinery.NewRevisionEngine(
-			machinery.NewPhaseEngine(
-				machinery.NewObjectEngine(
-					mgr.GetScheme(), trackingCache, mgr.GetClient(),
-					ownerhandling.NewNative(mgr.GetScheme()),
-					machinery.NewComparator(ownerhandling.NewNative(mgr.GetScheme()), discoveryClient, mgr.GetScheme(), fieldOwnerPrefix),
-					fieldOwnerPrefix, fieldOwnerPrefix,
-				),
-				validation.NewClusterPhaseValidator(mgr.GetRESTMapper(), mgr.GetClient()),
-			),
-			validation.NewRevisionValidator(), mgr.GetClient(),
-		),
+		Client:               mgr.GetClient(),
+		RevisionEngineGetter: revisionEngineGetter,
+		//RevisionEngine: machinery.NewRevisionEngine(
+		//    machinery.NewPhaseEngine(
+		//        machinery.NewObjectEngine(
+		//            mgr.GetScheme(), trackingCache, mgr.GetClient(),
+		//            ownerhandling.NewNative(mgr.GetScheme()),
+		//            machinery.NewComparator(ownerhandling.NewNative(mgr.GetScheme()), discoveryClient, mgr.GetScheme(), fieldOwnerPrefix),
+		//            fieldOwnerPrefix, fieldOwnerPrefix,
+		//        ),
+		//        validation.NewClusterPhaseValidator(mgr.GetRESTMapper(), mgr.GetClient()),
+		//    ),
+		//    validation.NewRevisionValidator(), mgr.GetClient(),
+		//),
 		TrackingCache: trackingCache,
 	}).SetupWithManager(mgr); err != nil {
 		return fmt.Errorf("unable to setup ClusterExtensionRevision controller: %w", err)
@@ -671,7 +713,7 @@ func setupHelm(
 	// determine if PreAuthorizer should be enabled based on feature gate
 	var preAuth authorization.PreAuthorizer
 	if features.OperatorControllerFeatureGate.Enabled(features.PreflightPermissions) {
-		preAuth = authorization.NewRBACPreAuthorizer(mgr.GetClient())
+		preAuth = authorization.NewRBACPreAuthorizer(mgr.GetClient(), false)
 	}
 
 	cm := contentmanager.NewManager(clientRestConfigMapper, mgr.GetConfig(), mgr.GetRESTMapper())

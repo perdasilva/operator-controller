@@ -96,9 +96,9 @@ func Test_ClusterExtensionRevisionReconciler_Reconcile_RevisionProgression(t *te
 						objects: []machinery.ObjectResult{
 							mockObjectResult{
 								success: true,
-								probes: map[string]machinery.ObjectProbeResult{
+								probes: map[string]machinerytypes.ProbeResult{
 									boxcutter.ProgressProbeType: {
-										Success: true,
+										Status: machinerytypes.ProbeStatusTrue,
 									},
 								},
 							},
@@ -114,9 +114,9 @@ func Test_ClusterExtensionRevisionReconciler_Reconcile_RevisionProgression(t *te
 									obj.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Service"))
 									return obj
 								}(),
-								probes: map[string]machinery.ObjectProbeResult{
+								probes: map[string]machinerytypes.ProbeResult{
 									boxcutter.ProgressProbeType: {
-										Success: false,
+										Status: machinerytypes.ProbeStatusFalse,
 										Messages: []string{
 											"something bad happened",
 											"something worse happened",
@@ -142,9 +142,9 @@ func Test_ClusterExtensionRevisionReconciler_Reconcile_RevisionProgression(t *te
 									obj.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ConfigMap"))
 									return obj
 								}(),
-								probes: map[string]machinery.ObjectProbeResult{
+								probes: map[string]machinerytypes.ProbeResult{
 									boxcutter.ProgressProbeType: {
-										Success: false,
+										Status: machinerytypes.ProbeStatusFalse,
 										Messages: []string{
 											"we have a problem",
 										},
@@ -303,9 +303,13 @@ func Test_ClusterExtensionRevisionReconciler_Reconcile_RevisionProgression(t *te
 			// reconcile cluster extension revision
 			result, err := (&controllers.ClusterExtensionRevisionReconciler{
 				Client: testClient,
-				RevisionEngine: &mockRevisionEngine{
-					reconcile: func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionReconcileOption) (machinery.RevisionResult, error) {
-						return tc.revisionResult, nil
+				RevisionEngineGetter: &mockEngineGetter{
+					fn: func(ctx context.Context, obj client.Object) (controllers.RevisionEngine, error) {
+						return &mockRevisionEngine{
+							reconcile: func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionReconcileOption) (machinery.RevisionResult, error) {
+								return tc.revisionResult, nil
+							},
+						}, nil
 					},
 				},
 				TrackingCache: &mockTrackingCache{client: testClient},
@@ -419,9 +423,13 @@ func Test_ClusterExtensionRevisionReconciler_Reconcile_ValidationError_Retries(t
 			// reconcile cluster extension revision
 			result, err := (&controllers.ClusterExtensionRevisionReconciler{
 				Client: testClient,
-				RevisionEngine: &mockRevisionEngine{
-					reconcile: func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionReconcileOption) (machinery.RevisionResult, error) {
-						return tc.revisionResult, nil
+				RevisionEngineGetter: &mockEngineGetter{
+					fn: func(ctx context.Context, obj client.Object) (controllers.RevisionEngine, error) {
+						return &mockRevisionEngine{
+							reconcile: func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionReconcileOption) (machinery.RevisionResult, error) {
+								return tc.revisionResult, nil
+							},
+						}, nil
 					},
 				},
 				TrackingCache: &mockTrackingCache{client: testClient},
@@ -648,11 +656,15 @@ func Test_ClusterExtensionRevisionReconciler_Reconcile_Deletion(t *testing.T) {
 			// reconcile cluster extension revision
 			result, err := (&controllers.ClusterExtensionRevisionReconciler{
 				Client: testClient,
-				RevisionEngine: &mockRevisionEngine{
-					reconcile: func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionReconcileOption) (machinery.RevisionResult, error) {
-						return tc.revisionResult, nil
+				RevisionEngineGetter: &mockEngineGetter{
+					fn: func(ctx context.Context, obj client.Object) (controllers.RevisionEngine, error) {
+						return &mockRevisionEngine{
+							reconcile: func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionReconcileOption) (machinery.RevisionResult, error) {
+								return tc.revisionResult, nil
+							},
+							teardown: tc.revisionEngineTeardownFn(t),
+						}, nil
 					},
-					teardown: tc.revisionEngineTeardownFn(t),
 				},
 				TrackingCache: &mockTrackingCache{client: testClient},
 			}).Reconcile(t.Context(), ctrl.Request{
@@ -735,6 +747,14 @@ func newTestClusterExtensionRevision(t *testing.T, name string) *ocv1.ClusterExt
 	}
 }
 
+type mockEngineGetter struct {
+	fn func(ctx context.Context, obj client.Object) (controllers.RevisionEngine, error)
+}
+
+func (m *mockEngineGetter) Get(ctx context.Context, obj client.Object) (controllers.RevisionEngine, error) {
+	return m.fn(ctx, obj)
+}
+
 type mockRevisionEngine struct {
 	teardown  func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionTeardownOption) (machinery.RevisionTeardownResult, error)
 	reconcile func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionReconcileOption) (machinery.RevisionResult, error)
@@ -765,7 +785,7 @@ func (m mockRevisionResult) GetPhases() []machinery.PhaseResult {
 	return m.phases
 }
 
-func (m mockRevisionResult) InTransistion() bool {
+func (m mockRevisionResult) InTransition() bool {
 	return m.inTransition
 }
 
@@ -803,7 +823,7 @@ func (m mockPhaseResult) GetObjects() []machinery.ObjectResult {
 	return m.objects
 }
 
-func (m mockPhaseResult) InTransistion() bool {
+func (m mockPhaseResult) InTransition() bool {
 	return m.inTransition
 }
 
@@ -820,11 +840,13 @@ func (m mockPhaseResult) String() string {
 }
 
 type mockObjectResult struct {
-	action  machinery.Action
-	object  machinery.Object
-	success bool
-	probes  map[string]machinery.ObjectProbeResult
-	string  string
+	complete bool
+	paused   bool
+	action   machinery.Action
+	object   machinery.Object
+	success  bool
+	probes   map[string]machinerytypes.ProbeResult
+	string   string
 }
 
 func (m mockObjectResult) Action() machinery.Action {
@@ -835,11 +857,19 @@ func (m mockObjectResult) Object() machinery.Object {
 	return m.object
 }
 
+func (m mockObjectResult) IsComplete() bool {
+	return m.complete
+}
+
+func (m mockObjectResult) IsPaused() bool {
+	return m.paused
+}
+
 func (m mockObjectResult) Success() bool {
 	return m.success
 }
 
-func (m mockObjectResult) Probes() map[string]machinery.ObjectProbeResult {
+func (m mockObjectResult) ProbeResults() machinerytypes.ProbeResultContainer {
 	return m.probes
 }
 

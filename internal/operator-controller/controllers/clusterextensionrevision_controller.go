@@ -16,13 +16,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
 	"pkg.package-operator.run/boxcutter"
 	"pkg.package-operator.run/boxcutter/machinery"
 	machinerytypes "pkg.package-operator.run/boxcutter/machinery/types"
+	"pkg.package-operator.run/boxcutter/ownerhandling"
 	"pkg.package-operator.run/boxcutter/probing"
+	"pkg.package-operator.run/boxcutter/validation"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
@@ -43,9 +50,51 @@ const (
 // ClusterExtensionRevisionReconciler actions individual snapshots of ClusterExtensions,
 // as part of the boxcutter integration.
 type ClusterExtensionRevisionReconciler struct {
-	Client         client.Client
-	RevisionEngine RevisionEngine
-	TrackingCache  trackingCache
+	Client               client.Client
+	RevisionEngineGetter EngineGetter
+	TrackingCache        trackingCache
+}
+
+type EngineGetter interface {
+	Get(ctx context.Context, obj client.Object) (RevisionEngine, error)
+}
+
+type RevisionEngineGetter struct {
+	BaseRestConfig     *rest.Config
+	ClientConfigMapper helmclient.ObjectToRestConfigMapper
+	DiscoveryClient    discovery.CachedDiscoveryInterface
+	TrackingCache      trackingCache
+	Scheme             *runtime.Scheme
+	RESTMapper         meta.RESTMapper
+	FieldOwnerPrefix   string
+}
+
+func (r *RevisionEngineGetter) Get(ctx context.Context, obj client.Object) (RevisionEngine, error) {
+	config, err := r.ClientConfigMapper(ctx, obj, r.BaseRestConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := client.New(config, client.Options{
+		Scheme: r.Scheme,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return machinery.NewRevisionEngine(
+		machinery.NewPhaseEngine(
+			machinery.NewObjectEngine(
+				r.Scheme, r.TrackingCache, c,
+				ownerhandling.NewNative(r.Scheme),
+				machinery.NewComparator(ownerhandling.NewNative(r.Scheme), r.DiscoveryClient, r.Scheme, r.FieldOwnerPrefix),
+				r.FieldOwnerPrefix, r.FieldOwnerPrefix,
+			),
+			validation.NewClusterPhaseValidator(r.RESTMapper, c),
+		),
+		validation.NewRevisionValidator(), c,
+	), nil
 }
 
 type trackingCache interface {
@@ -115,6 +164,11 @@ func checkForUnexpectedClusterExtensionRevisionFieldChange(a, b ocv1.ClusterExte
 func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev *ocv1.ClusterExtensionRevision) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
+	revisionEngine, err := c.RevisionEngineGetter.Get(ctx, rev)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error getting revision engine: %w", err)
+	}
+
 	revision, opts, err := c.toBoxcutterRevision(ctx, rev)
 	if err != nil {
 		meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
@@ -128,7 +182,7 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 	}
 
 	if !rev.DeletionTimestamp.IsZero() || rev.Spec.LifecycleState == ocv1.ClusterExtensionRevisionLifecycleStateArchived {
-		return c.teardown(ctx, rev, revision)
+		return c.teardown(ctx, revisionEngine, rev, revision)
 	}
 
 	//
@@ -156,7 +210,7 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 		return ctrl.Result{}, fmt.Errorf("establish watch: %v", err)
 	}
 
-	rres, err := c.RevisionEngine.Reconcile(ctx, *revision, opts...)
+	rres, err := revisionEngine.Reconcile(ctx, *revision, opts...)
 	if err != nil {
 		if rres != nil {
 			l.Error(err, "revision reconcile failed")
@@ -267,8 +321,8 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 				continue
 			}
 			for _, ores := range pres.GetObjects() {
-				pr := ores.Probes()[boxcutter.ProgressProbeType]
-				if pr.Success {
+				pr := ores.ProbeResults().Type(boxcutter.ProgressProbeType)
+				if pr.Status == machinerytypes.ProbeStatusTrue {
 					continue
 				}
 
@@ -300,7 +354,7 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 			})
 		}
 	}
-	if rres.InTransistion() {
+	if rres.InTransition() {
 		meta.SetStatusCondition(&rev.Status.Conditions, metav1.Condition{
 			Type:               ocv1.TypeProgressing,
 			Status:             metav1.ConditionTrue,
@@ -315,10 +369,10 @@ func (c *ClusterExtensionRevisionReconciler) reconcile(ctx context.Context, rev 
 	return ctrl.Result{}, nil
 }
 
-func (c *ClusterExtensionRevisionReconciler) teardown(ctx context.Context, rev *ocv1.ClusterExtensionRevision, revision *boxcutter.Revision) (ctrl.Result, error) {
+func (c *ClusterExtensionRevisionReconciler) teardown(ctx context.Context, revisionEngine RevisionEngine, rev *ocv1.ClusterExtensionRevision, revision *boxcutter.Revision) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
 
-	tres, err := c.RevisionEngine.Teardown(ctx, *revision)
+	tres, err := revisionEngine.Teardown(ctx, *revision, machinerytypes.WithTeardownWriter(c.Client))
 	if err != nil {
 		if tres != nil {
 			l.Error(err, "revision teardown failed")

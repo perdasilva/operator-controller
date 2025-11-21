@@ -66,6 +66,14 @@ type ClusterExtensionRevisionSpec struct {
 	// +listMapKey=name
 	// +optional
 	Phases []ClusterExtensionRevisionPhase `json:"phases,omitempty"`
+
+	// +optional
+	ServiceAccountRef *RevisionServiceAccountReference `json:"serviceAccountRef,omitempty"`
+}
+
+type RevisionServiceAccountReference struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 // ClusterExtensionRevisionLifecycleState specifies the lifecycle state of the ClusterExtensionRevision.

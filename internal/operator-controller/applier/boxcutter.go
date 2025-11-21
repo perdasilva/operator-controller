@@ -26,6 +26,7 @@ import (
 	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
 
 	ocv1 "github.com/operator-framework/operator-controller/api/v1"
+	"github.com/operator-framework/operator-controller/internal/operator-controller/authorization"
 	"github.com/operator-framework/operator-controller/internal/operator-controller/labels"
 )
 
@@ -178,6 +179,13 @@ func (r *SimpleRevisionGenerator) buildClusterExtensionRevision(
 	ext *ocv1.ClusterExtension,
 	annotations map[string]string,
 ) *ocv1.ClusterExtensionRevision {
+	var serviceAccountRef *ocv1.RevisionServiceAccountReference
+	if ext.Spec.ServiceAccount.Name != "" {
+		serviceAccountRef = &ocv1.RevisionServiceAccountReference{
+			Name:      ext.Spec.ServiceAccount.Name,
+			Namespace: ext.Spec.Namespace,
+		}
+	}
 	return &ocv1.ClusterExtensionRevision{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: annotations,
@@ -189,8 +197,9 @@ func (r *SimpleRevisionGenerator) buildClusterExtensionRevision(
 			// Explicitly set LifecycleState to Active. While the CRD has a default,
 			// being explicit here ensures all code paths are clear and doesn't rely
 			// on API server defaulting behavior.
-			LifecycleState: ocv1.ClusterExtensionRevisionLifecycleStateActive,
-			Phases:         PhaseSort(objects),
+			LifecycleState:    ocv1.ClusterExtensionRevisionLifecycleStateActive,
+			Phases:            PhaseSort(objects),
+			ServiceAccountRef: serviceAccountRef,
 		},
 	}
 }
@@ -280,6 +289,7 @@ type Boxcutter struct {
 	Scheme            *runtime.Scheme
 	RevisionGenerator ClusterExtensionRevisionGenerator
 	Preflights        []Preflight
+	PreAuthorizer     authorization.PreAuthorizer
 	FieldOwner        string
 }
 
@@ -308,10 +318,56 @@ func (bc *Boxcutter) createOrUpdate(ctx context.Context, obj client.Object) erro
 	return bc.Client.Patch(ctx, obj, client.Apply, client.FieldOwner(bc.FieldOwner), client.ForceOwnership)
 }
 
+func (bc *Boxcutter) runPreAuthorizationChecks(ctx context.Context, ext *ocv1.ClusterExtension, rev *ocv1.ClusterExtensionRevision) error {
+	if bc.PreAuthorizer == nil {
+		return nil
+	}
+
+	var manifestBuilder strings.Builder
+	for _, phase := range rev.Spec.Phases {
+		for _, phaseObject := range phase.Objects {
+			objBytes, err := yaml.Marshal(phaseObject.Object.Object)
+			if err != nil {
+				return fmt.Errorf("error generating revision manifest: %w", err)
+			}
+			manifestBuilder.WriteString("---\n")
+			manifestBuilder.WriteString(string(objBytes))
+			manifestBuilder.WriteString("\n")
+		}
+	}
+	missingRules, authErr := bc.PreAuthorizer.PreAuthorize(ctx, ext, strings.NewReader(manifestBuilder.String()))
+
+	var preAuthErrors []error
+
+	if len(missingRules) > 0 {
+		var missingRuleDescriptions []string
+		for _, policyRules := range missingRules {
+			for _, rule := range policyRules.MissingRules {
+				missingRuleDescriptions = append(missingRuleDescriptions, ruleDescription(policyRules.Namespace, rule))
+			}
+		}
+		slices.Sort(missingRuleDescriptions)
+		// This phrase is explicitly checked by external testing
+		preAuthErrors = append(preAuthErrors, fmt.Errorf("service account requires the following permissions to manage cluster extension:\n  %s", strings.Join(missingRuleDescriptions, "\n  ")))
+	}
+	if authErr != nil {
+		preAuthErrors = append(preAuthErrors, fmt.Errorf("authorization evaluation error: %w", authErr))
+	}
+	if len(preAuthErrors) > 0 {
+		// This phrase is explicitly checked by external testing
+		return fmt.Errorf("pre-authorization failed: %v", errors.Join(preAuthErrors...))
+	}
+	return nil
+}
+
 func (bc *Boxcutter) apply(ctx context.Context, contentFS fs.FS, ext *ocv1.ClusterExtension, objectLabels, revisionAnnotations map[string]string) (bool, string, error) {
 	// Generate desired revision
 	desiredRevision, err := bc.RevisionGenerator.GenerateRevision(ctx, contentFS, ext, objectLabels, revisionAnnotations)
 	if err != nil {
+		return false, "", err
+	}
+
+	if err := bc.runPreAuthorizationChecks(ctx, ext, desiredRevision); err != nil {
 		return false, "", err
 	}
 
