@@ -644,6 +644,7 @@ func Test_ClusterExtensionRevisionReconciler_Reconcile_Deletion(t *testing.T) {
 		validate                 func(*testing.T, client.Client)
 		trackingCacheFreeFn      func(context.Context, client.Object) error
 		expectedErr              string
+		expectedResult           ctrl.Result
 	}{
 		{
 			name:           "teardown finalizer is removed",
@@ -776,6 +777,76 @@ func Test_ClusterExtensionRevisionReconciler_Reconcile_Deletion(t *testing.T) {
 			},
 		},
 		{
+			name:           "set Progressing:True:Retrying and requeue when archived revision teardown is incomplete",
+			revisionResult: mockRevisionResult{},
+			existingObjs: func() []client.Object {
+				ext := newTestClusterExtension()
+				rev1 := newTestClusterExtensionRevision(t, clusterExtensionRevisionName, ext, testScheme)
+				rev1.Finalizers = []string{
+					"olm.operatorframework.io/teardown",
+				}
+				rev1.Spec.LifecycleState = ocv1.ClusterExtensionRevisionLifecycleStateArchived
+				return []client.Object{rev1, ext}
+			},
+			revisionEngineTeardownFn: func(t *testing.T) func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionTeardownOption) (machinery.RevisionTeardownResult, error) {
+				return func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionTeardownOption) (machinery.RevisionTeardownResult, error) {
+					return &mockRevisionTeardownResult{
+						isComplete: false,
+					}, nil
+				}
+			},
+			expectedResult: ctrl.Result{RequeueAfter: 5 * time.Second},
+			validate: func(t *testing.T, c client.Client) {
+				rev := &ocv1.ClusterExtensionRevision{}
+				err := c.Get(t.Context(), client.ObjectKey{
+					Name: clusterExtensionRevisionName,
+				}, rev)
+				require.NoError(t, err)
+				cond := meta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterExtensionRevisionTypeProgressing)
+				require.NotNil(t, cond)
+				require.Equal(t, metav1.ConditionTrue, cond.Status)
+				require.Equal(t, ocv1.ClusterExtensionRevisionReasonRetrying, cond.Reason)
+				require.Equal(t, "tearing down revision", cond.Message)
+
+				// Finalizer should still be present
+				require.Contains(t, rev.Finalizers, "olm.operatorframework.io/teardown")
+			},
+		},
+		{
+			name:           "return error and set retrying conditions when archived revision teardown fails",
+			revisionResult: mockRevisionResult{},
+			existingObjs: func() []client.Object {
+				ext := newTestClusterExtension()
+				rev1 := newTestClusterExtensionRevision(t, clusterExtensionRevisionName, ext, testScheme)
+				rev1.Finalizers = []string{
+					"olm.operatorframework.io/teardown",
+				}
+				rev1.Spec.LifecycleState = ocv1.ClusterExtensionRevisionLifecycleStateArchived
+				return []client.Object{rev1, ext}
+			},
+			revisionEngineTeardownFn: func(t *testing.T) func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionTeardownOption) (machinery.RevisionTeardownResult, error) {
+				return func(ctx context.Context, rev machinerytypes.Revision, opts ...machinerytypes.RevisionTeardownOption) (machinery.RevisionTeardownResult, error) {
+					return nil, fmt.Errorf("teardown failed: connection refused")
+				}
+			},
+			expectedErr: "error tearing down revision",
+			validate: func(t *testing.T, c client.Client) {
+				rev := &ocv1.ClusterExtensionRevision{}
+				err := c.Get(t.Context(), client.ObjectKey{
+					Name: clusterExtensionRevisionName,
+				}, rev)
+				require.NoError(t, err)
+				cond := meta.FindStatusCondition(rev.Status.Conditions, ocv1.ClusterExtensionRevisionTypeProgressing)
+				require.NotNil(t, cond)
+				require.Equal(t, metav1.ConditionTrue, cond.Status)
+				require.Equal(t, ocv1.ClusterExtensionRevisionReasonRetrying, cond.Reason)
+				require.Contains(t, cond.Message, "teardown failed: connection refused")
+
+				// Finalizer should still be present
+				require.Contains(t, rev.Finalizers, "olm.operatorframework.io/teardown")
+			},
+		},
+		{
 			name:           "revision is torn down when in archived state and finalizer is removed",
 			revisionResult: mockRevisionResult{},
 			existingObjs: func() []client.Object {
@@ -847,7 +918,7 @@ func Test_ClusterExtensionRevisionReconciler_Reconcile_Deletion(t *testing.T) {
 			})
 
 			// reconcile cluster extension revision
-			require.Equal(t, ctrl.Result{}, result)
+			require.Equal(t, tc.expectedResult, result)
 			if tc.expectedErr != "" {
 				require.Contains(t, err.Error(), tc.expectedErr)
 			} else {
