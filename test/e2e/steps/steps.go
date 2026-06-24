@@ -124,7 +124,6 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)ClusterExtension reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) and Message includes:$`, ClusterExtensionReportsConditionWithMessageFragment)
 	sc.Step(`^(?i)ClusterExtension reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+)$`, ClusterExtensionReportsConditionWithoutMsg)
 	sc.Step(`^(?i)ClusterExtension reports ([[:alnum:]]+) as ([[:alnum:]]+)$`, ClusterExtensionReportsConditionWithoutReason)
-	sc.Step(`^(?i)ClusterExtension "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+)$`, NamedClusterExtensionReportsCondition)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+)$`, ClusterObjectSetReportsConditionWithoutMsg)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) and Message:$`, ClusterObjectSetReportsConditionWithMsg)
 	sc.Step(`^(?i)ClusterObjectSet "([^"]+)" reports ([[:alnum:]]+) as ([[:alnum:]]+) with Reason ([[:alnum:]]+) and Message includes:$`, ClusterObjectSetReportsConditionWithMessageFragment)
@@ -184,7 +183,6 @@ func RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^(?i)min value for (ClusterExtension|ClusterObjectSet) ((?:\.[a-zA-Z]+)+) is set to (\d+)$`, SetCRDFieldMinValue)
 
 	sc.Step(`^(?i)the current ClusterExtension is tracked for cleanup$`, TrackCurrentClusterExtensionForCleanup)
-	sc.Step(`^(?i)ClusterExtension "([^"]+)" has (\d+) ClusterObjectSets?$`, ClusterExtensionHasClusterObjectSets)
 
 	// TLS profile enforcement steps — deployment configuration
 	sc.Step(`^(?i)the "([^"]+)" deployment is configured with custom TLS minimum version "([^"]+)"$`, ConfigureDeploymentWithCustomTLSVersion)
@@ -392,24 +390,6 @@ func TrackCurrentClusterExtensionForCleanup(ctx context.Context) error {
 	if sc.clusterExtensionName != "" {
 		sc.addedResources = append(sc.addedResources, resource{name: sc.clusterExtensionName, kind: "clusterextension"})
 	}
-	return nil
-}
-
-// ClusterExtensionHasClusterObjectSets waits for the named ClusterExtension to own exactly the
-// expected number of ClusterObjectSets. Polls with timeout.
-func ClusterExtensionHasClusterObjectSets(ctx context.Context, extName string, expectedCount int) error {
-	sc := scenarioCtx(ctx)
-	extName = substituteScenarioVars(extName, sc)
-	waitFor(ctx, func() bool {
-		out, err := k8sClient("get", "clusterobjectsets",
-			"-l", fmt.Sprintf("olm.operatorframework.io/owner-name=%s", extName),
-			"-o", "jsonpath={.items[*].metadata.name}")
-		if err != nil {
-			return false
-		}
-		names := strings.Fields(strings.TrimSpace(out))
-		return len(names) == expectedCount
-	})
 	return nil
 }
 
@@ -687,14 +667,6 @@ func ClusterExtensionReportsConditionWithoutMsg(ctx context.Context, conditionTy
 // and status, without checking reason or message. Polls with timeout.
 func ClusterExtensionReportsConditionWithoutReason(ctx context.Context, conditionType, conditionStatus string) error {
 	return waitForExtensionCondition(ctx, conditionType, conditionStatus, nil, nil)
-}
-
-// NamedClusterExtensionReportsCondition waits for a specific ClusterExtension (by name) to have a condition
-// matching type and status. Polls with timeout.
-func NamedClusterExtensionReportsCondition(ctx context.Context, extName, conditionType, conditionStatus string) error {
-	sc := scenarioCtx(ctx)
-	extName = substituteScenarioVars(extName, sc)
-	return waitForCondition(ctx, "clusterextension", extName, conditionType, conditionStatus, nil, nil)
 }
 
 // ClusterExtensionReportsConditionTransitionTime asserts that a condition's lastTransitionTime falls within
