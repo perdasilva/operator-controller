@@ -167,12 +167,12 @@ Example:
 
 ```
 $ kubectl get clusterextensions
-NAME              READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-cert-manager      True    False         Succeeded                1.14.0                           30d
-my-operator       False   True          RollingOut               1.0.0     Upgrade       2.0.0    5d
-reconfig-op       False   True          RollingOut               1.0.0     Reconfigure   1.0.0    5d
-fresh-install     False   True          RollingOut               <none>    Install       1.0.0    10s
-broken-operator   False   False         Blocked                  <none>    Install       1.0.0    2h
+NAME              READY   PROGRESSING   REASON       VERSION   ROLLOUT       TARGET   AGE
+cert-manager      True    False         Succeeded    1.14.0                           30d
+my-operator       False   True          RollingOut   1.0.0     Upgrade       2.0.0    5d
+reconfig-op       False   True          RollingOut   1.0.0     Reconfigure   1.0.0    5d
+fresh-install     False   True          RollingOut   <none>    Install       1.0.0    10s
+broken-operator   False   False         Blocked      <none>    Install       1.0.0    2h
 ```
 
 ### 1.7 Complete CE Condition Summary
@@ -345,10 +345,10 @@ Example with multiple revisions including archived:
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1     1          Archived    <none>  False         Archived     30d
-my-operator-2     2          Archived    <none>  False         Archived     5d
-my-operator-3     3          Active      True    False         Succeeded    1d
+NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON      AGE
+my-operator-1   1          Archived    <none>   False         Archived    30d
+my-operator-2   2          Archived    <none>   False         Archived    5d
+my-operator-3   3          Active      True     False         Succeeded   1d
 ```
 
 ### 2.6 Complete COS Status Structure
@@ -417,8 +417,8 @@ The extension is installed and healthy. No work in progress.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   True    False         Succeeded                1.0.0                            5d
+NAME          READY   PROGRESSING   REASON      VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    False         Succeeded   1.0.0                        5d
 ```
 
 ```yaml
@@ -453,8 +453,8 @@ A new ClusterExtension is being installed for the first time. The COS is rolling
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   True          RollingOut               <none>    Install       1.0.0    30s
+NAME          READY   PROGRESSING   REASON       VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          RollingOut   <none>    Install   1.0.0    30s
 ```
 
 ```yaml
@@ -482,8 +482,8 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1     1          Active      False   True          RollingOut   30s
+NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
+my-operator-1   1          Active      False   True          RollingOut   30s
 ```
 
 ```yaml
@@ -522,8 +522,8 @@ The user changed the version constraint. A new COS revision is rolling out while
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   True          RollingOut               1.0.0     Upgrade       2.0.0    5d
+NAME          READY   PROGRESSING   REASON       VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          RollingOut   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -554,9 +554,9 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1     1          Active      True    False         Succeeded    5d
-my-operator-2     2          Active      False   True          RollingOut   30s
+NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
+my-operator-1   1          Active      True    False         Succeeded    5d
+my-operator-2   2          Active      False   True          RollingOut   30s
 ```
 
 **Key UX point**: `Ready=False` — the new revision's objects are still rolling out, so the on-cluster state is in transition. `Installed=True` confirms the previous version was installed. `Version=1.0.0` shows what was installed, `Rollout=Upgrade` and `Target=2.0.0` show where it's headed. The COS table shows two active revisions. Once COS-2 completes, Ready returns to True.
@@ -571,8 +571,8 @@ The user changed configuration (e.g., service account, inline config) without ch
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   True          RollingOut               1.0.0     Reconfigure   1.0.0    5d
+NAME          READY   PROGRESSING   REASON       VERSION   ROLLOUT       TARGET   AGE
+my-operator   False   True          RollingOut   1.0.0     Reconfigure   1.0.0    5d
 ```
 
 ```yaml
@@ -603,9 +603,9 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1     1          Active      True    False         Succeeded    5d
-my-operator-2     2          Active      False   True          Retrying     10s
+NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON      AGE
+my-operator-1   1          Active      True    False         Succeeded   5d
+my-operator-2   2          Active      False   True          Retrying    10s
 ```
 
 **User action**: Wait. The reconfiguration is in progress.
@@ -618,8 +618,8 @@ The user specifies a package name or version that doesn't exist in any catalog. 
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   True          Retrying                 <none>                           2m
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          Retrying   <none>                       2m
 ```
 
 ```yaml
@@ -653,8 +653,8 @@ The user requests an upgrade to a version that doesn't exist, but the old versio
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   True    True          Retrying                 1.0.0                            5d
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          Retrying   1.0.0                        5d
 ```
 
 ```yaml
@@ -691,8 +691,8 @@ The user provides inline configuration that doesn't match the bundle's config sc
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   True    False         InvalidConfiguration     1.0.0     Upgrade       2.0.0    5d
+NAME          READY   PROGRESSING   REASON                 VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    False         InvalidConfiguration   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -733,8 +733,8 @@ Same as above but nothing was previously installed.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   False         InvalidConfiguration     <none>    Install       1.0.0    2m
+NAME          READY   PROGRESSING   REASON                 VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   False         InvalidConfiguration   <none>    Install   1.0.0    2m
 ```
 
 ```yaml
@@ -772,8 +772,8 @@ The bundle image cannot be pulled (e.g., registry unreachable, auth failure, ima
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   True          Retrying                 <none>    Install       1.0.0    5m
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          Retrying   <none>    Install   1.0.0    5m
 ```
 
 ```yaml
@@ -809,8 +809,8 @@ The bundle's image reference string is malformed and cannot be parsed.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   False         Blocked                  <none>    Install       1.0.0    2m
+NAME          READY   PROGRESSING   REASON    VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   False         Blocked   <none>    Install   1.0.0    2m
 ```
 
 ```yaml
@@ -848,8 +848,8 @@ The ServiceAccount specified in `spec.serviceAccount.name` does not exist.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   True          Retrying                 <none>                           1m
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          Retrying   <none>                       1m
 ```
 
 ```yaml
@@ -881,8 +881,8 @@ The ServiceAccount exists but lacks RBAC permissions for the bundle's managed re
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   True    True          Retrying                 1.0.0     Upgrade       2.0.0    5d
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -923,8 +923,8 @@ The bundle contains unsupported features like APIServiceDefinitions or unsupport
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   True    True          Retrying                 1.0.0     Upgrade       2.0.0    5d
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -965,8 +965,8 @@ The COS revision is stuck because a Deployment's pods are not ready (e.g., image
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   True          RollingOut               1.0.0     Upgrade       2.0.0    5d
+NAME          READY   PROGRESSING   REASON       VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          RollingOut   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -998,9 +998,9 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1     1          Active      True    False         Succeeded    5d
-my-operator-2     2          Active      False   True          RollingOut   5m
+NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
+my-operator-1   1          Active      True    False         Succeeded    5d
+my-operator-2   2          Active      False   True          RollingOut   5m
 ```
 
 ```yaml
@@ -1045,15 +1045,15 @@ A managed object is already owned by another controller. The collision protectio
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   Unknown True          Retrying                 1.0.0     Upgrade       2.0.0    5d
+NAME          READY     PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   Unknown   True          Retrying   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY     PROGRESSING   REASON       AGE
-my-operator-1     1          Active      True    False         Succeeded    5d
-my-operator-2     2          Active      <none>  True          Retrying     2m
+NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON      AGE
+my-operator-1   1          Active      True     False         Succeeded   5d
+my-operator-2   2          Active      <none>   True          Retrying    2m
 ```
 
 ```yaml
@@ -1120,14 +1120,14 @@ A Secret referenced by the COS is not marked as immutable. This is a terminal bl
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   False         Blocked                  <none>    Install       1.0.0    5m
+NAME          READY   PROGRESSING   REASON    VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   False         Blocked   <none>    Install   1.0.0    5m
 ```
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY     PROGRESSING   REASON       AGE
-my-operator-1     1          Active      <none>  False         Blocked      5m
+NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON    AGE
+my-operator-1   1          Active      <none>   False         Blocked   5m
 ```
 
 ```yaml
@@ -1177,15 +1177,15 @@ A referenced Secret was deleted and recreated with different content after the C
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   Unknown False         Blocked                  1.0.0     Upgrade       2.0.0    5d
+NAME          READY     PROGRESSING   REASON    VERSION   ROLLOUT   TARGET   AGE
+my-operator   Unknown   False         Blocked   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY     PROGRESSING   REASON       AGE
-my-operator-1     1          Active      True    False         Succeeded    5d
-my-operator-2     2          Active      <none>  False         Blocked      1h
+NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON      AGE
+my-operator-1   1          Active      True     False         Succeeded   5d
+my-operator-2   2          Active      <none>   False         Blocked     1h
 ```
 
 ```yaml
@@ -1238,15 +1238,15 @@ Boxcutter preflight validation fails (e.g., dry-run apply rejected by admission 
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   Unknown True          Retrying                 1.0.0     Upgrade       2.0.0    5d
+NAME          READY     PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   Unknown   True          Retrying   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY     PROGRESSING   REASON       AGE
-my-operator-1     1          Active      True    False         Succeeded    5d
-my-operator-2     2          Active      <none>  True          Retrying     3m
+NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON      AGE
+my-operator-1   1          Active      True     False         Succeeded   5d
+my-operator-2   2          Active      <none>   True          Retrying    3m
 ```
 
 ```yaml
@@ -1309,8 +1309,8 @@ The first install has been stuck for longer than the configured progress deadlin
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   False         ProgressDeadlineExceeded <none>    Install       1.0.0    35m
+NAME          READY   PROGRESSING   REASON                     VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   False         ProgressDeadlineExceeded   <none>    Install   1.0.0    35m
 ```
 
 ```yaml
@@ -1339,8 +1339,8 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1     1          Active      False   False         ProgressDeadlineExceeded 35m
+NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON                     AGE
+my-operator-1   1          Active      False   False         ProgressDeadlineExceeded   35m
 ```
 
 ```yaml
@@ -1382,8 +1382,8 @@ An upgrade has been stuck too long. The old version is still installed and healt
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   False   False         ProgressDeadlineExceeded 1.0.0     Upgrade       2.0.0    5d
+NAME          READY   PROGRESSING   REASON                     VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   False         ProgressDeadlineExceeded   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -1414,9 +1414,9 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME              REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1     1          Active      True    False         Succeeded    5d
-my-operator-2     2          Active      False   False         ProgressDeadlineExceeded 35m
+NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON                     AGE
+my-operator-1   1          Active      True    False         Succeeded                  5d
+my-operator-2   2          Active      False   False         ProgressDeadlineExceeded   35m
 ```
 
 **Key UX point**: `Ready=False/ProbeFailure` — the CE surfaces the actual probe failure from the latest COS. `Progressing=False/ProgressDeadlineExceeded` — the upgrade timed out. `rollout` shows the failed target. `Installed=True` confirms the previous version was installed. The COS table shows the new revision (`my-operator-2`) is `Ready=False, Progressing=False` — a clear indicator of the stuck revision.
@@ -1431,8 +1431,8 @@ All catalogs have been deleted but the extension has a previously installed vers
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   True    False         Succeeded                1.0.0                            5d
+NAME          READY   PROGRESSING   REASON      VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    False         Succeeded   1.0.0                        5d
 ```
 
 ```yaml
@@ -1473,8 +1473,8 @@ The upgrade includes CRD changes that fail the safety check (e.g., removing a st
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   True    True          Retrying                 1.0.0     Upgrade       2.0.0    5d
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -1515,8 +1515,8 @@ During migration from Helm to boxcutter storage, the migration step fails.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-my-operator   True    True          Retrying                 1.0.0                            30d
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          Retrying   1.0.0                        30d
 ```
 
 ```yaml
@@ -1553,11 +1553,11 @@ The print columns work well for managing multiple extensions at scale:
 
 ```
 $ kubectl get clusterextensions
-NAME              READY   PROGRESSING   REASON                   VERSION   ROLLOUT       TARGET   AGE
-cert-manager      True    False         Succeeded                1.14.0                           30d
-my-operator       False   True          RollingOut               1.0.0     Upgrade       2.0.0    5d
-broken-operator   False   False         Blocked                  <none>    Install       1.0.0    2h
-deprecated-op     True    False         Succeeded                3.2.1                            90d
+NAME              READY   PROGRESSING   REASON       VERSION   ROLLOUT   TARGET   AGE
+cert-manager      True    False         Succeeded    1.14.0                       30d
+my-operator       False   True          RollingOut   1.0.0     Upgrade   2.0.0    5d
+broken-operator   False   False         Blocked      <none>    Install   1.0.0    2h
+deprecated-op     True    False         Succeeded    3.2.1                        90d
 ```
 
 At a glance:
