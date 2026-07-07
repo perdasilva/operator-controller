@@ -260,7 +260,7 @@ type PhaseStatus struct {
 
     // status indicates the current state of this phase.
     // +required
-    // +kubebuilder:validation:Enum=Pending;Active;Complete;Failed
+    // +kubebuilder:validation:Enum=Pending;Active;Complete;Failed;Transitioning
     Status PhaseStatusState `json:"status"`
 
     // lastTransitionTime is the last time the phase status transitioned.
@@ -290,20 +290,29 @@ const (
     // PhaseFailed indicates one or more objects in this phase failed their probes
     // or encountered an error. The message field contains details.
     PhaseFailed PhaseStatusState = "Failed"
+
+    // PhaseTransitioning indicates some objects in this phase have been adopted
+    // by a newer revision while others are still owned by this revision. This state
+    // occurs on the OLD revision during a multi-revision upgrade.
+    PhaseTransitioning PhaseStatusState = "Transitioning"
 )
 ```
 
-**Phase state transitions**:
-- **Pending → Active**: The revision engine begins reconciling this phase (objects are applied).
+**Phase state transitions on a new revision (COS-2)**:
+- **Pending → Active**: The revision engine begins reconciling this phase (adopting objects from the old revision or creating new ones).
 - **Active → Complete**: All objects in the phase pass their progression probes.
 - **Active → Failed**: One or more objects fail probes or encounter errors. The `Message` field contains details (e.g., "Deployment my-ns/my-deploy: updatedReplicas (1) != replicas (3)").
 - **Failed → Active**: On retry, the phase re-enters Active state when the engine re-reconciles it.
 
+**Phase state transitions on the old revision (COS-1) during upgrade**:
+- **Complete → Transitioning**: A newer revision has adopted some (but not all) objects in this phase. The `Message` field shows transition progress (e.g., "2/5 objects transitioned to revision 2").
+- **Transitioning → Complete**: All objects in this phase have been adopted by the newer revision (`HasProgressed()=true`). From COS-1's perspective, the phase is done — its objects are no longer its responsibility.
+
 **How phases are populated**: The COS controller derives phase status from the boxcutter `RevisionResult` and the COS spec:
 
 1. **All phase names** come from `cos.Spec.Phases[*].Name` — this is the complete list.
-2. **Processed phases** come from `RevisionResult.GetPhases()` — this is a subset; the revision engine stops at the first incomplete phase.
-3. **Derivation rules**:
+2. **Processed phases** come from `RevisionResult.GetPhases()` — this is a subset; the revision engine stops at the first incomplete phase on new revisions. For old revisions (with `succeededAt`), all phases are processed.
+3. **Derivation rules for new revisions** (no `succeededAt`):
    - Phases in `spec.phases` but NOT in `RevisionResult.GetPhases()` → `Pending`
    - Phases in the result where `PhaseResult.IsComplete()` returns true → `Complete`
    - The last phase in the result where `!PhaseResult.IsComplete()`:
@@ -311,7 +320,11 @@ const (
      - If `PhaseResult.InTransition()` returns true (objects are being applied/adopted) → `Active`
      - If `PhaseResult.GetValidationError()` is non-nil → `Failed`, with validation error in the `Message` field
    - Phases with `ObjectResult.Action() == ActionCollision` → `Failed`, with collision details in the `Message` field
-4. **Pre-phase errors** (secret immutability, revision engine creation, reconcile error): all phases are `Pending` because the controller never reached phase processing.
+4. **Derivation rules for old revisions** (has `succeededAt`):
+   - `PhaseResult.HasProgressed()` returns true (all objects adopted by newer revision) → `Complete`
+   - Phase has mix of `ActionProgressed` and `ActionIdle` objects → `Transitioning`, message shows progress count
+   - All objects `ActionIdle` (no newer revision has adopted them) → `Complete`
+5. **Pre-phase errors** (secret immutability, revision engine creation, reconcile error): all phases are `Pending` because the controller never reached phase processing.
 
 **Phase names**: The COS uses human-readable phase names derived from the Group-Kind classification (e.g., `namespaces`, `crds`, `roles`, `deploy`, `publish`). These are stable and deterministic for a given bundle.
 
@@ -562,6 +575,90 @@ my-operator-2   2          Active      False   True          RollingOut   30s
 **Key UX point**: `Ready=False` — the new revision's objects are still rolling out, so the on-cluster state is in transition. `Installed=True` confirms the previous version was installed. `Version=1.0.0` shows what was installed, `Rollout=Upgrade` and `Target=2.0.0` show where it's headed. The COS table shows two active revisions. Once COS-2 completes, Ready returns to True.
 
 **User action**: Wait. Monitor Progressing condition for progress.
+
+---
+
+### 3.3a Happy Path: Upgrade — Phase-Level View of Both Revisions
+
+This shows the detailed phase-level state during the same upgrade from 3.3, viewed from both COS revisions. COS-2 is in the middle of its phased rollout, adopting objects from COS-1 phase by phase.
+
+```
+$ kubectl get clusterobjectsets
+NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
+my-operator-1   1          Active      True    False         Succeeded    5d
+my-operator-2   2          Active      False   True          RollingOut   2m
+```
+
+```yaml
+# COS my-operator-2 (new revision) — actively rolling out
+status:
+  conditions:
+  - type: Ready
+    status: "False"
+    reason: RollingOut
+    message: "Revision 2.0.0 is rolling out."
+  - type: Progressing
+    status: "True"
+    reason: RollingOut
+    message: "Revision 2.0.0 is rolling out."
+  phases:
+  - name: namespaces
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - name: crds
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:05Z"
+  - name: roles
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:10Z"
+  - name: deploy
+    status: Active
+    lastTransitionTime: "2026-07-07T10:00:15Z"
+    message: "Waiting for Deployment my-ns/my-deploy: updatedReplicas (1) != replicas (3)"
+  - name: publish
+    status: Pending
+```
+
+```yaml
+# COS my-operator-1 (old revision) — objects being handed off to COS-2
+status:
+  succeededAt: "2026-07-02T08:00:00Z"
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: ProbesSucceeded
+    message: "Objects are available and pass all probes."
+  - type: Progressing
+    status: "False"
+    reason: Succeeded
+    message: "Revision 1.0.0 has rolled out."
+  phases:
+  - name: namespaces
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:01Z"
+    message: "All objects transitioned to revision 2"
+  - name: crds
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:06Z"
+    message: "All objects transitioned to revision 2"
+  - name: roles
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:11Z"
+    message: "All objects transitioned to revision 2"
+  - name: deploy
+    status: Transitioning
+    lastTransitionTime: "2026-07-07T10:00:15Z"
+    message: "1/3 objects transitioned to revision 2"
+  - name: publish
+    status: Complete
+    lastTransitionTime: "2026-07-02T08:00:00Z"
+```
+
+**Key UX point**: COS-2's phases show the new revision's rollout progress — `namespaces`, `crds`, and `roles` are Complete (objects adopted and probes pass), `deploy` is Active (waiting on probes), `publish` is Pending (not yet reached).
+
+COS-1's phases show the handoff progress — `namespaces`, `crds`, and `roles` are Complete (all objects transitioned to revision 2), `deploy` is Transitioning (1 of 3 objects adopted by COS-2 so far), and `publish` is still Complete (COS-1 still owns these objects).
+
+Once COS-2 completes all phases, it archives COS-1.
 
 ---
 
