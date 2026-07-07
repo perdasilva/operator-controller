@@ -147,18 +147,18 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 
 **Current**: `Installed Bundle`, `Version`, `Installed`, `Progressing`, `Age`
 
-**Proposed**: `Ready`, `Progressing`, `Version`, `Rollout`, `Target`, `Age`
+**Proposed**: `Ready`, `Status`, `Version`, `Rollout`, `Target`, `Age`
 
 | Column | JSONPath | Rationale |
 |--------|---------|-----------|
 | Ready | `.status.conditions[?(@.type=='Ready')].status` | Primary health signal — the first thing users check |
-| Progressing | `.status.conditions[?(@.type=='Progressing')].reason` | What the controller is doing — **shows the reason, not the boolean**. More informative: `Succeeded` (done), `RollingOut` (active), `Retrying` (error, retrying), `Blocked` (terminal), `InvalidConfiguration` (fix spec), `ProgressDeadlineExceeded` (timed out) |
+| Status | `.status.conditions[?(@.type=='Progressing')].reason` | What the controller is doing — the Progressing condition's **reason**, not its boolean. The header is `Status` because the values (`Succeeded`, `RollingOut`, `Blocked`, etc.) describe the current state, not a boolean: `Succeeded` (done), `RollingOut` (active), `Retrying` (error, retrying), `Blocked` (terminal), `InvalidConfiguration` (fix spec), `ProgressDeadlineExceeded` (timed out) |
 | Version | `.status.install.bundle.version` | What version is installed |
 | Rollout | `.status.rollout.type` | What kind of rollout is in progress (Install/Upgrade/Reconfigure). Empty in steady state |
 | Target | `.status.rollout.bundle.version` | What version is being rolled out to. Empty in steady state |
 | Age | `.metadata.creationTimestamp` | Standard |
 
-`Installed Bundle` (the bundle name) is dropped because it's rarely needed at a glance — the CE name itself identifies the extension, and the version is more actionable. The `Installed` condition column is replaced by `Ready`, which is a more useful signal. The `Progressing` column shows the **reason** rather than the boolean status — the reason is strictly more informative (the boolean can be inferred from the reason), and it answers "should I worry?" directly. The `Rollout` and `Target` columns provide upgrade visibility without requiring `kubectl describe`.
+`Installed Bundle` (the bundle name) is dropped because it's rarely needed at a glance — the CE name itself identifies the extension, and the version is more actionable. The `Installed` condition column is replaced by `Ready`, which is a more useful signal. The `Status` column shows the Progressing condition's **reason** rather than its boolean — the reason is strictly more informative (the boolean can be inferred from the reason), and it answers "should I worry?" directly. The header is `Status` rather than `Progressing` because values like `Succeeded` and `Blocked` describe the current state, not a boolean. The `Rollout` and `Target` columns provide upgrade visibility without requiring `kubectl describe`.
 
 **Triage at a glance**: `Ready=True + Succeeded` = all good. `Ready=False + RollingOut` = normal upgrade, wait. `Ready=False + Retrying` = issue, controller is working on it. `Ready=False + Blocked/InvalidConfiguration/ProgressDeadlineExceeded` = **needs attention**.
 
@@ -166,7 +166,7 @@ Example:
 
 ```
 $ kubectl get clusterextensions
-NAME              READY   PROGRESSING              VERSION   ROLLOUT       TARGET    AGE
+NAME              READY   STATUS                   VERSION   ROLLOUT       TARGET    AGE
 cert-manager      True    Succeeded                1.14.0                            30d
 my-operator       False   RollingOut               1.0.0     Upgrade       2.0.0     5d
 reconfig-op       False   RollingOut               1.0.0     Reconfigure   1.0.0     5d
@@ -415,7 +415,7 @@ The extension is installed and healthy. No work in progress.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   True   Succeeded                1.0.0                            5d
 ```
 
@@ -451,7 +451,7 @@ A new ClusterExtension is being installed for the first time. The COS is rolling
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  RollingOut               <none>    Install       1.0.0  30s
 ```
 
@@ -520,7 +520,7 @@ The user changed the version constraint. A new COS revision is rolling out while
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  RollingOut               1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -569,7 +569,7 @@ The user changed configuration (e.g., service account, inline config) without ch
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  RollingOut               1.0.0     Reconfigure   1.0.0  5d
 ```
 
@@ -616,7 +616,7 @@ The user specifies a package name or version that doesn't exist in any catalog. 
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  Retrying                 <none>                           2m
 ```
 
@@ -651,7 +651,7 @@ The user requests an upgrade to a version that doesn't exist, but the old versio
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   True   Retrying                 1.0.0                            5d
 ```
 
@@ -689,7 +689,7 @@ The user provides inline configuration that doesn't match the bundle's config sc
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   True   InvalidConfiguration     1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -731,7 +731,7 @@ Same as above but nothing was previously installed.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  InvalidConfiguration     <none>    Install       1.0.0  2m
 ```
 
@@ -770,7 +770,7 @@ The bundle image cannot be pulled (e.g., registry unreachable, auth failure, ima
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  Retrying                 <none>    Install       1.0.0  5m
 ```
 
@@ -807,7 +807,7 @@ The bundle's image reference string is malformed and cannot be parsed.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  Blocked                  <none>    Install       1.0.0  2m
 ```
 
@@ -846,7 +846,7 @@ The ServiceAccount specified in `spec.serviceAccount.name` does not exist.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  Retrying                 <none>                           1m
 ```
 
@@ -879,7 +879,7 @@ The ServiceAccount exists but lacks RBAC permissions for the bundle's managed re
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   True   Retrying                 1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -921,7 +921,7 @@ The bundle contains unsupported features like APIServiceDefinitions or unsupport
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   True   Retrying                 1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -963,7 +963,7 @@ The COS revision is stuck because a Deployment's pods are not ready (e.g., image
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  RollingOut               1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -1043,7 +1043,7 @@ A managed object is already owned by another controller. The collision protectio
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   Unknown  Retrying                 1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -1118,7 +1118,7 @@ A Secret referenced by the COS is not marked as immutable. This is a terminal bl
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  Blocked                  <none>    Install       1.0.0  5m
 ```
 
@@ -1175,7 +1175,7 @@ A referenced Secret was deleted and recreated with different content after the C
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   Unknown  Blocked                  1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -1236,7 +1236,7 @@ Boxcutter preflight validation fails (e.g., dry-run apply rejected by admission 
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   Unknown  Retrying                 1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -1307,7 +1307,7 @@ The first install has been stuck for longer than the configured progress deadlin
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  ProgressDeadlineExceeded <none>    Install       1.0.0  35m
 ```
 
@@ -1380,7 +1380,7 @@ An upgrade has been stuck too long. The old version is still installed and healt
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   False  ProgressDeadlineExceeded 1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -1429,7 +1429,7 @@ All catalogs have been deleted but the extension has a previously installed vers
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   True   Succeeded                1.0.0                            5d
 ```
 
@@ -1471,7 +1471,7 @@ The upgrade includes CRD changes that fail the safety check (e.g., removing a st
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   True   Retrying                 1.0.0     Upgrade       2.0.0  5d
 ```
 
@@ -1513,7 +1513,7 @@ During migration from Helm to boxcutter storage, the migration step fails.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME          READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 my-operator   True   Retrying                 1.0.0                            30d
 ```
 
@@ -1551,7 +1551,7 @@ The print columns work well for managing multiple extensions at scale:
 
 ```
 $ kubectl get clusterextensions
-NAME              READY   PROGRESSING              VERSION   ROLLOUT       TARGET   AGE
+NAME              READY   STATUS                   VERSION   ROLLOUT       TARGET   AGE
 cert-manager      True    Succeeded                1.14.0                           30d
 my-operator       False   RollingOut               1.0.0     Upgrade       2.0.0    5d
 broken-operator   False   Blocked                  <none>    Install       1.0.0    2h
@@ -1725,7 +1725,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Add `ClusterExtensionRolloutStatus` type and `RolloutType` enum
   - Add `Rollout` field to `ClusterExtensionStatus`
   - Remove `ActiveRevisions` field and `RevisionStatus` type
-  - Update print columns (Ready, Progressing, Version, Rollout, Target, Age)
+  - Update print columns (Ready, Status, Version, Rollout, Target, Age)
 - `common_controller.go`:
   - Add `setReadyCondition()` helper functions
   - Update `setInstalledStatusFromRevisionStates()` to also set Ready
@@ -1757,7 +1757,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
 
 3. **Phase-level debugging on COS**: When users do need to investigate a stuck rollout, COS provides per-phase status with probe failure details, eliminating the need to inspect individual managed objects.
 
-4. **Better kubectl experience**: Print columns show what matters — `Ready` and `Progressing` give an at-a-glance health summary, and `Version` shows what's installed.
+4. **Better kubectl experience**: Print columns show what matters — `Ready` and `Status` give an at-a-glance health summary and triage signal, `Version` shows what's installed, and `Rollout`/`Target` show what's happening.
 
 5. **Cleaner API boundary**: CE no longer leaks COS implementation details (no mirrored conditions, no `activeRevisions`). The API contract is between the user and the CE; COS is purely internal.
 
