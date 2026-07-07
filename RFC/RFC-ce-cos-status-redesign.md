@@ -60,23 +60,28 @@ A new `Ready` condition provides a dedicated health signal for the extension's m
 | Status | Reason | Meaning |
 |--------|--------|---------|
 | True | `Succeeded` | Resources healthy, all probes pass |
-| False | `Absent` | Nothing installed yet, rollout in progress (not an error — installation hasn't completed) |
+| False | `Absent` | Nothing installed yet and no COS exists (pre-COS error or initial state) |
 | False | `Failed` | Pre-COS pipeline error (resolution failure, pull failure, validation error) |
 | False | `ProbeFailure` | Specific probe failure on managed resources |
+| False | `RollingOut` | Rollout in progress, objects in transition — probes not yet passing |
 | Unknown | `Pending` | Initial state before first reconcile |
+| Unknown | `Reconciling` | COS encountered a transient error, health temporarily unknown |
 
 **How Ready is derived**:
 
-- **When an installed revision exists**: `Ready` reflects the installed COS revision's probe state. If probes pass, `Ready=True/Succeeded`. If probes fail, `Ready=False/ProbeFailure`. Upgrade errors do NOT affect `Ready` when the old version is still healthy — upgrade problems are reported in `Progressing`.
-- **When no revision is installed and a pre-COS error occurs** (resolution failure, pull failure, validation error): `Ready=False/Failed` with a message that describes the actual error (e.g., `"Bundle resolution failed: no bundles found..."`), not just "No bundle installed." The user should understand *why* things aren't ready from this condition alone.
-- **When no revision is installed and a rollout is progressing normally**: `Ready=False/Absent`. This is a neutral state — the install hasn't completed yet, but nothing is wrong. The `Absent` reason avoids alarming the user with `Failed` during normal first-install progress.
+- **When a COS revision is rolling out** (latest active COS without `succeededAt`): `Ready` reflects that COS's probe state. If it's still rolling out and probes haven't been evaluated, `Ready=False/RollingOut`. If probes are failing, `Ready=False/ProbeFailure`. This means **Ready drops during normal upgrades** — it tracks the actual on-cluster state, not a cached view from the old revision. During a multi-revision transition, objects are being adopted by the new COS phase by phase; the old COS's view is stale for objects it has handed off.
+- **When only the installed revision exists** (no rollout in progress): `Ready` reflects the installed COS's probe state. If probes pass, `Ready=True/Succeeded`. If probes fail, `Ready=False/ProbeFailure`.
+- **When a pre-COS error occurs** (resolution failure, pull failure, validation error — no new COS is created): If an installed revision exists, `Ready` stays based on that installed revision's probe state (the error didn't create a new COS, so the on-cluster state hasn't changed). If no installed revision exists, `Ready=False/Failed` with the actual error context.
+- **When no revision is installed and a rollout is progressing normally**: `Ready=False/Absent`. This is a neutral state — the install hasn't completed yet, but nothing is wrong.
 - **When nothing is installed and no error has occurred yet**: `Ready=Unknown/Pending` (brief initial state before first reconcile).
+
+**Why Ready drops during upgrades**: During a multi-revision transition, objects are adopted by the new COS phase by phase. The old COS reports handed-off objects as `Progressed` (complete) even though the new COS's version of those objects might be failing probes. Deriving Ready from the old COS would be misleading — it would say "healthy" when the actual on-cluster objects are in a mixed or broken state. By tracking the latest active COS's probe state, Ready reflects what is actually deployed.
 
 **Ready vs Installed**: These answer different questions:
 - `Installed` → "Has a bundle been successfully installed?" (static fact, based on whether any COS has completed rollout)
-- `Ready` → "Are the managed resources currently healthy?" (dynamic health check, based on probe state or pipeline error state)
+- `Ready` → "Are the managed resources currently healthy right now?" (dynamic health check, tracks the latest active COS's probe state)
 
-You can have `Installed=True, Ready=True` during an upgrade error — the old version is still healthy, and the upgrade problem is captured in `Progressing`.
+You can have `Installed=True, Ready=False/RollingOut` during a normal upgrade — the old version was installed but objects are being replaced, and the new revision hasn't completed. Once the upgrade finishes, Ready returns to True.
 
 ### 1.3 Add Rollout Status Field
 
@@ -161,8 +166,8 @@ Example:
 $ kubectl get clusterextensions
 NAME              READY   PROGRESSING   VERSION   ROLLOUT       TARGET    AGE
 cert-manager      True    False         1.14.0                            30d
-my-operator       True    True          1.0.0     Upgrade       2.0.0     5d
-reconfig-op       True    True          1.0.0     Reconfigure   1.0.0     5d
+my-operator       False   True          1.0.0     Upgrade       2.0.0     5d
+reconfig-op       False   True          1.0.0     Reconfigure   1.0.0     5d
 fresh-install     False   True          <none>    Install       1.0.0     10s
 broken-operator   False   False         <none>    Install       1.0.0     2h
 ```
@@ -172,14 +177,14 @@ broken-operator   False   False         <none>    Install       1.0.0     2h
 | Condition | Status=True | Status=False | Status=Unknown |
 |-----------|------------|-------------|----------------|
 | **Installed** | `Succeeded` — bundle installed | `Failed` — installation error; `Absent` — no installation yet, healthy rollout in progress | `Failed` — cannot determine |
-| **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — nothing installed yet, rollout progressing normally; `Failed` — pre-COS pipeline error (message carries the specific error); `ProbeFailure` — specific probe failure on managed resources | `Pending` — initial state before first reconcile |
+| **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — nothing installed yet (no COS exists); `Failed` — pre-COS pipeline error (message carries the specific error); `ProbeFailure` — specific probe failure on managed resources; `RollingOut` — objects in transition, probes not yet passing | `Pending` — initial state before first reconcile; `Reconciling` — transient error on latest COS, health temporarily unknown |
 | **Progressing** | `RollingOut` — active rollout; `Retrying` — retrying after error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
 | **Deprecated** | `Deprecated` — any deprecation exists | `NotDeprecated` — no deprecation | `DeprecationStatusUnknown` — catalog data unavailable |
 | **PackageDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
 | **ChannelDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
 | **BundleDeprecated** | `Deprecated` — installed bundle deprecated | `NotDeprecated` | `DeprecationStatusUnknown`; `Absent` — no bundle installed |
 
-**Key decision: Ready during upgrades**. When an upgrade or reconfiguration fails but the previously-installed version is still healthy, `Ready` stays `True/Succeeded`. The upgrade error is reported exclusively through `Progressing`. This prevents false alarms — the old version is still serving, and the user needs to fix the upgrade, not panic about availability.
+**Key decision: Ready tracks actual on-cluster state**. During upgrades and reconfigurations, `Ready` reflects the latest rolling-out COS's probe state — not the old installed revision's state. This means Ready drops to `False` during normal upgrades (the new revision's objects haven't all passed probes yet). This is intentional: during the transition, objects are being replaced phase by phase, and the old COS's view is stale for objects it has handed off. `Installed` remains `True/Succeeded` (a bundle was installed in the past), and users can check `Progressing` to understand what's happening. When a pre-COS error occurs (resolution, config, pull) and no new COS is created, Ready stays based on the installed revision (the on-cluster state hasn't changed).
 
 ### 1.8 Complete CE Status Structure
 
@@ -514,7 +519,7 @@ The user changed the version constraint. A new COS revision is rolling out while
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    True          1.0.0     Upgrade   2.0.0    5d
+my-operator   False   True          1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -525,9 +530,9 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
   - type: Ready
-    status: "True"
-    reason: Succeeded
-    message: "All managed resources are healthy"
+    status: "False"
+    reason: RollingOut
+    message: "Revision 2.0.0 is rolling out."
   - type: Progressing
     status: "True"
     reason: RollingOut
@@ -550,7 +555,7 @@ my-operator-1     1          Active      True    False         5d
 my-operator-2     2          Active      False   True          30s
 ```
 
-**Key UX point**: `Ready=True` — the old version is still healthy. `Version=1.0.0` shows what's installed, `Rollout=Upgrade` and `Target=2.0.0` show what's happening and where it's headed — all visible at a glance. The COS table shows two active revisions: the old one (Ready, not progressing) and the new one (not ready, progressing).
+**Key UX point**: `Ready=False` — the new revision's objects are still rolling out, so the on-cluster state is in transition. `Installed=True` confirms the previous version was installed. `Version=1.0.0` shows what was installed, `Rollout=Upgrade` and `Target=2.0.0` show where it's headed. The COS table shows two active revisions. Once COS-2 completes, Ready returns to True.
 
 **User action**: Wait. Monitor Progressing condition for progress.
 
@@ -563,7 +568,7 @@ The user changed configuration (e.g., service account, inline config) without ch
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   VERSION   ROLLOUT       TARGET   AGE
-my-operator   True    True          1.0.0     Reconfigure   1.0.0    5d
+my-operator   False   True          1.0.0     Reconfigure   1.0.0    5d
 ```
 
 ```yaml
@@ -574,9 +579,9 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
   - type: Ready
-    status: "True"
-    reason: Succeeded
-    message: "All managed resources are healthy"
+    status: "False"
+    reason: RollingOut
+    message: "Revision 1.0.0 is rolling out."
   - type: Progressing
     status: "True"
     reason: RollingOut
@@ -957,7 +962,7 @@ The COS revision is stuck because a Deployment's pods are not ready (e.g., image
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    True          1.0.0     Upgrade   2.0.0    5d
+my-operator   False   True          1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -969,9 +974,9 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
   - type: Ready
-    status: "True"
-    reason: Succeeded
-    message: "All managed resources are healthy"
+    status: "False"
+    reason: ProbeFailure
+    message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
   - type: Progressing
     status: "True"
     reason: RollingOut
@@ -1036,8 +1041,8 @@ A managed object is already owned by another controller. The collision protectio
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    True          1.0.0     Upgrade   2.0.0    5d
+NAME          READY     PROGRESSING   VERSION   ROLLOUT   TARGET   AGE
+my-operator   Unknown   True          1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
@@ -1056,9 +1061,9 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
   - type: Ready
-    status: "True"
-    reason: Succeeded
-    message: "All managed resources are healthy"
+    status: "Unknown"
+    reason: Reconciling
+    message: "revision object collisions in phase roles: Deployment.apps/v1 my-ns/conflicting-deploy: collision with controller owned by ClusterObjectSet/other-ext-1"
   - type: Progressing
     status: "True"
     reason: Retrying
@@ -1168,8 +1173,8 @@ A referenced Secret was deleted and recreated with different content after the C
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    False         1.0.0     Upgrade   2.0.0    5d
+NAME          READY     PROGRESSING   VERSION   ROLLOUT   TARGET   AGE
+my-operator   Unknown   False         1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
@@ -1188,9 +1193,9 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
   - type: Ready
-    status: "True"
-    reason: Succeeded
-    message: "All managed resources are healthy"
+    status: "Unknown"
+    reason: Reconciling
+    message: "Revision blocked: resolved content of phase(s) changed, referenced object source may have been deleted and recreated"
   - type: Progressing
     status: "False"
     reason: Blocked
@@ -1229,8 +1234,8 @@ Boxcutter preflight validation fails (e.g., dry-run apply rejected by admission 
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    True          1.0.0     Upgrade   2.0.0    5d
+NAME          READY     PROGRESSING   VERSION   ROLLOUT   TARGET   AGE
+my-operator   Unknown   True          1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
@@ -1249,9 +1254,9 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
   - type: Ready
-    status: "True"
-    reason: Succeeded
-    message: "All managed resources are healthy"
+    status: "Unknown"
+    reason: Reconciling
+    message: "revision validation error: dry-run apply rejected by webhook: admission controller denied the request"
   - type: Progressing
     status: "True"
     reason: Retrying
@@ -1374,7 +1379,7 @@ An upgrade has been stuck too long. The old version is still installed and healt
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    False         1.0.0     Upgrade   2.0.0    5d
+my-operator   False   False         1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -1385,9 +1390,9 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
   - type: Ready
-    status: "True"
-    reason: Succeeded
-    message: "All managed resources are healthy"
+    status: "False"
+    reason: ProbeFailure
+    message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
   - type: Progressing
     status: "False"
     reason: ProgressDeadlineExceeded
@@ -1410,9 +1415,9 @@ my-operator-1     1          Active      True    False         5d
 my-operator-2     2          Active      False   False         35m
 ```
 
-**Key UX point**: `Ready=True` — old version is fine. `Progressing=False/ProgressDeadlineExceeded` — the upgrade timed out. `rollout` shows the failed target. The user's workload is unaffected. The COS table shows the new revision (`my-operator-2`) is `Ready=False, Progressing=False` — a clear indicator of the stuck revision.
+**Key UX point**: `Ready=False/ProbeFailure` — the CE surfaces the actual probe failure from the latest COS. `Progressing=False/ProgressDeadlineExceeded` — the upgrade timed out. `rollout` shows the failed target. `Installed=True` confirms the previous version was installed. The COS table shows the new revision (`my-operator-2`) is `Ready=False, Progressing=False` — a clear indicator of the stuck revision.
 
-**User action**: Investigate the COS `my-operator-2` for phase-level details on why v2.0.0 is stuck.
+**User action**: Investigate the probe failure on the CE, or inspect the COS `my-operator-2` for phase-level details.
 
 ---
 
@@ -1546,16 +1551,18 @@ The print columns work well for managing multiple extensions at scale:
 $ kubectl get clusterextensions
 NAME              READY   PROGRESSING   VERSION   ROLLOUT       TARGET   AGE
 cert-manager      True    False         1.14.0                           30d
-my-operator       True    True          1.0.0     Upgrade       2.0.0    5d
+my-operator       False   True          1.0.0     Upgrade       2.0.0    5d
 broken-operator   False   False         <none>    Install       1.0.0    2h
 deprecated-op     True    False         3.2.1                            90d
 ```
 
 At a glance:
 - `cert-manager`: Healthy, nothing happening — clean columns
-- `my-operator`: Healthy, upgrading to 2.0.0 — old version still serving
+- `my-operator`: NOT ready (upgrade in progress), upgrading to 2.0.0 — objects in transition
 - `broken-operator`: NOT ready, NOT progressing, stuck on Install → 1.0.0 — needs attention
 - `deprecated-op`: Healthy, nothing happening (check deprecation conditions for details)
+
+**Distinguishing upgrade-in-progress from stuck**: Both `my-operator` and `broken-operator` show `Ready=False`. The difference is `Progressing`: True means active work (normal), False means stuck (needs attention). The pattern to watch for is `Ready=False, Progressing=False` — that's the red flag.
 
 ## Part 4: Condition Type and Reason Reference
 
@@ -1636,7 +1643,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | Condition | True | False | Unknown |
 |-----------|------|-------|---------|
 | **Installed** | Succeeded | Failed, Absent | Failed |
-| **Ready** | Succeeded | Absent, Failed, ProbeFailure | Pending |
+| **Ready** | Succeeded | Absent, Failed, ProbeFailure, RollingOut | Pending, Reconciling |
 | **Progressing** | RollingOut, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
 | **Deprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **PackageDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
@@ -1790,7 +1797,7 @@ Add per-phase status fields on CE as well as COS, making CE completely self-suff
 
 2. **Rollout field lifecycle**: ✅ Resolved. `status.rollout` persists whenever a rollout has been attempted, including failed/blocked rollouts. It is cleared only on `Progressing=False/Succeeded`. This ensures the user can always see what they were trying to roll out to, even if it failed.
 
-3. **Ready condition during upgrades**: ✅ Resolved. When an upgrade is in progress and the old version is still healthy, `Ready=True/Succeeded` (based on the installed COS's probe state). The upgrade error is reported exclusively through `Progressing`. This prevents false alarms about availability when only the upgrade is failing. When nothing is installed and a pre-COS error occurs, `Ready=False/Failed`.
+3. **Ready condition during upgrades**: ✅ Resolved. Ready tracks the latest active COS's probe state to reflect the actual on-cluster state. During an upgrade, Ready drops to `False/RollingOut` because objects are in transition between revisions. The old COS's view is stale for objects it has handed off, so deriving Ready from it would be misleading. When a pre-COS error occurs and no new COS is created, Ready stays based on the installed revision (the on-cluster state hasn't changed). The pattern `Ready=False, Progressing=True` is normal during upgrades; the red flag is `Ready=False, Progressing=False` (stuck).
 
 4. **Phase status for migrated revisions**: ✅ Resolved. Migrated COS revisions (from `BoxcutterStorageMigrator`) did not go through the phased rollout process. Their `status.phases` will be empty, and they will have `succeededAt` set. This is acceptable because migrated revisions represent pre-existing workloads that were already running.
 
@@ -1800,7 +1807,7 @@ Add per-phase status fields on CE as well as COS, making CE completely self-suff
 
 2. **Phase status message size**: Probe failure messages can be verbose (they include full GVK, namespace/name, and probe details). For phases with many objects, the concatenated message could be large. The current COS controller breaks after the first failing object per phase. We should adopt a similar strategy and potentially limit message size.
 
-3. **Ready condition and resource drift**: If an installed revision's managed resources experience drift (e.g., someone deletes a managed Deployment), the COS re-reconciles. During re-reconciliation, should `Ready` on the CE temporarily become `False/ProbeFailure` while the drift is being corrected, or should it stay `True` until the drift is confirmed? This depends on how quickly drift is corrected vs. how much condition churn is acceptable.
+3. **Ready condition and resource drift**: Since Ready now tracks the latest active COS's probe state, drift on the installed revision would be reflected if the COS re-reconciles and temporarily reports probes failing. This is consistent with the "track actual on-cluster state" principle — if probes are temporarily failing, Ready should reflect that. The condition will recover once the COS re-reconciles and probes pass again.
 
 4. **Rollout type for downgrades**: The RFC defines `Install`, `Upgrade`, and `Reconfigure` rollout types. Should we add a `Downgrade` type for cases where the target version is lower than the installed version? Or is `Upgrade` sufficient (it's still a version change, just in the other direction)?
 
