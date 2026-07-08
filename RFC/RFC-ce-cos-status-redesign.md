@@ -1087,7 +1087,7 @@ status:
   - type: Installed
     status: "False"
     reason: Absent
-    message: "operation cannot proceed due to the following validation error(s): service account \"my-sa\" not found in namespace \"my-ns\""
+    message: "No bundle installed"
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
