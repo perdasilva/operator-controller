@@ -738,7 +738,7 @@ status:
   rollout: null
 ```
 
-**Key UX point**: `Ready=False/Failed` — the user sees the problem immediately. The Ready message carries the actual error context ("Bundle resolution failed: ..."), not just "No bundle installed." Both Ready and Progressing explain the problem. No COS exists to inspect. No `rollout` is set because resolution hasn't succeeded yet (we don't know the target bundle).
+**Key UX point**: `Ready=False/Absent` (nothing deployed), `Progressing=True/Retrying` with the specific resolution error. The user checks Progressing to understand what went wrong. No COS exists to inspect. No `rollout` is set because resolution hasn't succeeded yet (we don't know the target bundle).
 
 **User action**: Fix the package name, version constraint, or channel in the CE spec. Or add a catalog containing the desired package.
 
@@ -857,7 +857,7 @@ status:
       version: 1.0.0
 ```
 
-**Key UX point**: `Ready=False`, `Progressing=False` — a concerning state. Both conditions are False, signaling a problem. The Ready message tells the user *why* things aren't ready (invalid config). The Progressing `InvalidConfiguration` reason tells the user this is a config problem, not transient. `rollout` shows the target that failed.
+**Key UX point**: `Ready=False/Absent` (nothing deployed), `Progressing=False/InvalidConfiguration` — a concerning state. Both conditions are False, signaling a problem. The Progressing reason and message tell the user exactly what to fix. `rollout` shows the target that failed.
 
 **User action**: Fix the inline configuration.
 
@@ -1130,7 +1130,7 @@ status:
     status: Pending
 ```
 
-**Key UX point**: From the CE alone, the user can see an upgrade is happening and that a probe is failing — the Progressing message includes the probe failure detail from the COS. `Ready=True` because the old version is still healthy. The COS provides deeper phase-level debugging for users who need it.
+**Key UX point**: From the CE alone, the user can see an upgrade is happening and that a probe is failing — `Ready=False/ProbeFailure` shows the health issue on the latest COS, and the Progressing message includes the probe failure detail. The COS provides deeper phase-level debugging for users who need it.
 
 **User action**: Investigate the Deployment (check pods, events, image availability).
 
@@ -1262,7 +1262,7 @@ status:
   phases: []   # no phases populated — reconciliation blocked before phase processing
 ```
 
-**Key UX point**: The CE surfaces the COS blocking error directly — `Progressing=False/Blocked` with the specific error message. The user can diagnose the problem entirely from the CE without inspecting COS. The Ready condition explains *why* things aren't ready.
+**Key UX point**: The CE surfaces the COS blocking error directly — `Progressing=False/Blocked` with the specific error message. The user can diagnose the problem entirely from the CE without inspecting COS.
 
 **User action**: Ensure all referenced Secrets have `immutable: true`.
 
