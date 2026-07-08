@@ -1705,7 +1705,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ReasonRollingOut` | `"RollingOut"` | Progressing=True, Ready=False | ✓ | ✓ |
 | `ReasonResolutionFailed` | `"ResolutionFailed"` | Progressing=True | ✓ | — |
 | `ReasonPullFailed` | `"PullFailed"` | Progressing=True | ✓ | — |
-| `ReasonValidationFailed` | `"ValidationFailed"` | Progressing=True | ✓ | — |
+| `ReasonValidationFailed` | `"ValidationFailed"` | Progressing=True | ✓ | ✓ |
 | `ReasonAuthorizationFailed` | `"AuthorizationFailed"` | Progressing=True | ✓ | — |
 | `ReasonContentFailed` | `"ContentFailed"` | Progressing=True | ✓ | — |
 | `ReasonPreflightFailed` | `"PreflightFailed"` | Progressing=True | ✓ | — |
@@ -1751,7 +1751,6 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ClusterObjectSetReasonProbesSucceeded` | `"ProbesSucceeded"` | Ready=True |
 | `ClusterObjectSetReasonReconciling` | `"Reconciling"` | Ready=Unknown |
 | `ClusterObjectSetReasonCollisionDetected` | `"CollisionDetected"` | Progressing=True |
-| `ClusterObjectSetReasonValidationFailed` | `"ValidationFailed"` | Progressing=True |
 
 **Removed:** `ClusterObjectSetReasonBlocked` (use shared `ReasonBlocked`), `ClusterObjectSetReasonProbeFailure` (use shared `ReasonProbeFailure`), `ClusterObjectSetReasonRetrying` (use shared `ReasonRetrying`).
 
