@@ -48,7 +48,7 @@ This RFC proposes changes across both the CE and COS APIs to make the CE self-su
 - `Progressing=True, Reason=RollingOut` → "active rollout, no issues" (unchanged)
 - `Progressing=True, Reason=ProbeFailure` → "rollout in progress but probes failing"
 - `Progressing=True, Reason=ResolutionFailed` → "bundle resolution failed, retrying"
-- `Progressing=True, Reason=PullFailed` → "image pull failed, retrying"
+- `Progressing=True, Reason=ImagePullFailed` → "image pull failed, retrying"
 - `Progressing=True, Reason=ValidationFailed` → "CE validation failed (e.g., ServiceAccount not found), retrying"
 - `Progressing=True, Reason=AuthorizationFailed` → "RBAC insufficient, retrying"
 - `Progressing=True, Reason=ContentFailed` → "bundle content unsupported, retrying"
@@ -160,7 +160,7 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 |--------|---------|-----------|
 | Ready | `.status.conditions[?(@.type=='Ready')].status` | Primary health signal — the first thing users check |
 | Progressing | `.status.conditions[?(@.type=='Progressing')].status` | Is something actively happening? Standard Kubernetes boolean |
-| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason. Each reason identifies a specific error category: `Succeeded`, `RollingOut`, `ProbeFailure`, `ResolutionFailed`, `PullFailed`, `ValidationFailed`, `AuthorizationFailed`, `ContentFailed`, `PreflightFailed`, `Retrying`, `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` |
+| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason. Each reason identifies a specific error category: `Succeeded`, `RollingOut`, `ProbeFailure`, `ResolutionFailed`, `ImagePullFailed`, `ValidationFailed`, `AuthorizationFailed`, `ContentFailed`, `PreflightFailed`, `Retrying`, `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` |
 | Version | `.status.install.bundle.version` | What version is installed |
 | Rollout | `.status.rollout.type` | What kind of rollout is in progress (Install/Upgrade/Reconfigure). Empty in steady state |
 | Target | `.status.rollout.bundle.version` | What version is being rolled out to. Empty in steady state |
@@ -179,7 +179,7 @@ NAME              READY   PROGRESSING   REASON                VERSION   ROLLOUT 
 cert-manager      True    False         Succeeded             1.14.0                           30d
 my-operator       False   True          RollingOut            1.0.0     Upgrade       2.0.0    5d
 broken-operator   False   False         Blocked               <none>    Install       1.0.0    2h
-pull-fail         False   True          PullFailed            <none>    Install       1.0.0    5m
+pull-fail         False   True          ImagePullFailed            <none>    Install       1.0.0    5m
 no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade       2.0.0    5d
 ```
 
@@ -190,7 +190,7 @@ $ kubectl get clusterextensions -o wide
 NAME              READY   PROGRESSING   REASON                VERSION   ROLLOUT   TARGET   MESSAGE                                                                            AGE
 cert-manager      True    False         Succeeded             1.14.0                       Desired state reached                                                                30d
 broken-operator   False   False         Blocked               <none>    Install   1.0.0    error parsing image reference "!!!invalid": invalid reference format                2h
-pull-fail         False   True          PullFailed            <none>    Install   1.0.0    error copying image: authentication required                                       5m
+pull-fail         False   True          ImagePullFailed            <none>    Install   1.0.0    error copying image: authentication required                                       5m
 no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade   2.0.0    pre-authorization failed: SA requires permissions: [create deployments.apps]        5d
 ```
 
@@ -200,7 +200,7 @@ no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade 
 |-----------|------------|-------------|----------------|
 | **Installed** | `Succeeded` — a bundle is installed | `Absent` — no bundle installed | — |
 | **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — no bundle installed (nothing deployed); `ProbeFailure` — specific probe failure on managed resources; `RollingOut` — objects in transition, probes not yet passing | `Pending` — initial state before first reconcile |
-| **Progressing** | `RollingOut` — active rollout, no issues; `ProbeFailure` — rollout active, probes failing; `ResolutionFailed` — bundle not found; `PullFailed` — image pull error; `ValidationFailed` — CE validation error; `AuthorizationFailed` — RBAC insufficient; `ContentFailed` — bundle content unsupported; `PreflightFailed` — preflight check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
+| **Progressing** | `RollingOut` — active rollout, no issues; `ProbeFailure` — rollout active, probes failing; `ResolutionFailed` — bundle not found; `ImagePullFailed` — image pull error; `ValidationFailed` — CE validation error; `AuthorizationFailed` — RBAC insufficient; `ContentFailed` — bundle content unsupported; `PreflightFailed` — preflight check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
 | **Deprecated** | `Deprecated` — any deprecation exists | `NotDeprecated` — no deprecation | `DeprecationStatusUnknown` — catalog data unavailable |
 | **PackageDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
 | **ChannelDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
@@ -354,7 +354,7 @@ const (
 | Condition | Status=True | Status=False | Status=Unknown |
 |-----------|------------|-------------|----------------|
 | **Ready** | `ProbesSucceeded` — all managed objects pass probes | `ProbeFailure` — one or more probe failures; `RollingOut` — rollout not yet complete | `Reconciling` — transient error; `Archived` — revision archived |
-| **Progressing** | `RollingOut` — active rollout; `CollisionDetected` — object ownership conflict; `ValidationFailed` — preflight/dry-run failure; `Retrying` — other transient error | `Succeeded` — rollout complete; `Blocked` — terminal error; `Archived` — revision archived; `ProgressDeadlineExceeded` — deadline exceeded | — |
+| **Progressing** | `RollingOut` — active rollout; `ObjectCollisionDetected` — object ownership conflict; `ValidationFailed` — preflight/dry-run failure; `Retrying` — other transient error | `Succeeded` — rollout complete; `Blocked` — terminal error; `Archived` — revision archived; `ProgressDeadlineExceeded` — deadline exceeded | — |
 
 **Key changes**:
 - `Progressing=True, Reason=Succeeded` (the same bug as CE) is fixed to `Progressing=False, Reason=Succeeded`.
@@ -402,7 +402,7 @@ type ClusterObjectSetStatus struct {
     //
     // The Progressing condition represents whether the revision is actively rolling out:
     //   - When status is True and reason is RollingOut, the revision is actively making progress.
-    //   - When status is True and reason is CollisionDetected, an object ownership conflict was detected.
+    //   - When status is True and reason is ObjectCollisionDetected, an object ownership conflict was detected.
     //   - When status is True and reason is ValidationFailed, a preflight or dry-run validation failed.
     //   - When status is True and reason is Retrying, the revision encountered a transient error and is retrying.
     //   - When status is False and reason is Succeeded, the revision has completed its rollout.
@@ -915,13 +915,13 @@ The bundle image cannot be pulled (e.g., registry unreachable, auth failure, ima
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON       VERSION   ROLLOUT   TARGET   AGE
-my-operator   False   True          PullFailed   <none>    Install   1.0.0    5m
+my-operator   False   True          ImagePullFailed   <none>    Install   1.0.0    5m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON       VERSION   ROLLOUT   TARGET   MESSAGE                                                                  AGE
-my-operator   False   True          PullFailed   <none>    Install   1.0.0    error for resolved bundle my-operator with version 1.0.0: error cop...   5m
+my-operator   False   True          ImagePullFailed   <none>    Install   1.0.0    error for resolved bundle my-operator with version 1.0.0: error cop...   5m
 
 ```yaml
 status:
@@ -936,7 +936,7 @@ status:
     message: "No bundle installed"
   - type: Progressing
     status: "True"
-    reason: PullFailed
+    reason: ImagePullFailed
     message: "error for resolved bundle my-operator with version 1.0.0: error copying image: authentication required"
   install: null
   rollout:
@@ -1230,7 +1230,7 @@ my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    revi
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY     PROGRESSING   REASON              AGE
 my-operator-1   1          True      False         Succeeded           5d
-my-operator-2   2          Unknown   True          CollisionDetected   2m
+my-operator-2   2          Unknown   True          ObjectCollisionDetected   2m
 ```
 
 ```yaml
@@ -1270,7 +1270,7 @@ status:
     message: "revision object collisions in phase 2\nObject Deployment..."
   - type: Progressing
     status: "True"
-    reason: CollisionDetected
+    reason: ObjectCollisionDetected
     message: "revision object collisions in phase 2\nObject Deployment.apps/v1 my-ns/conflicting-deploy: collision with controller owned by ClusterObjectSet/other-ext-1"
   phases:
   - name: namespaces
@@ -1814,7 +1814,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ReasonProbeFailure` | `"ProbeFailure"` | Ready=False, Progressing=True (COS probes failing during rollout) | ✓ | ✓ |
 | `ReasonRollingOut` | `"RollingOut"` | Progressing=True, Ready=False | ✓ | ✓ |
 | `ReasonResolutionFailed` | `"ResolutionFailed"` | Progressing=True | ✓ | — |
-| `ReasonPullFailed` | `"PullFailed"` | Progressing=True | ✓ | — |
+| `ReasonImagePullFailed` | `"ImagePullFailed"` | Progressing=True | ✓ | — |
 | `ReasonValidationFailed` | `"ValidationFailed"` | Progressing=True | ✓ | ✓ |
 | `ReasonAuthorizationFailed` | `"AuthorizationFailed"` | Progressing=True | ✓ | — |
 | `ReasonContentFailed` | `"ContentFailed"` | Progressing=True | ✓ | — |
@@ -1860,7 +1860,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ClusterObjectSetReasonArchived` | `"Archived"` | Progressing=False, Ready=Unknown |
 | `ClusterObjectSetReasonProbesSucceeded` | `"ProbesSucceeded"` | Ready=True |
 | `ClusterObjectSetReasonReconciling` | `"Reconciling"` | Ready=Unknown |
-| `ClusterObjectSetReasonCollisionDetected` | `"CollisionDetected"` | Progressing=True |
+| `ClusterObjectSetReasonObjectCollisionDetected` | `"ObjectCollisionDetected"` | Progressing=True |
 
 **Removed:** `ClusterObjectSetReasonBlocked` (use shared `ReasonBlocked`), `ClusterObjectSetReasonProbeFailure` (use shared `ReasonProbeFailure`), `ClusterObjectSetReasonRetrying` (use shared `ReasonRetrying`).
 
@@ -1874,7 +1874,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 |-----------|------|-------|---------|
 | **Installed** | Succeeded | Absent | — |
 | **Ready** | Succeeded | Absent, ProbeFailure, RollingOut | Pending |
-| **Progressing** | RollingOut, ProbeFailure, ResolutionFailed, PullFailed, ValidationFailed, AuthorizationFailed, ContentFailed, PreflightFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
+| **Progressing** | RollingOut, ProbeFailure, ResolutionFailed, ImagePullFailed, ValidationFailed, AuthorizationFailed, ContentFailed, PreflightFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
 | **Deprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **PackageDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **ChannelDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
@@ -1885,7 +1885,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | Condition | True | False | Unknown |
 |-----------|------|-------|---------|
 | **Ready** | ProbesSucceeded | ProbeFailure, RollingOut | Reconciling, Archived |
-| **Progressing** | RollingOut, CollisionDetected, ValidationFailed, Retrying | Succeeded, Blocked, Archived, ProgressDeadlineExceeded | — |
+| **Progressing** | RollingOut, ObjectCollisionDetected, ValidationFailed, Retrying | Succeeded, Blocked, Archived, ProgressDeadlineExceeded | — |
 
 ### 4.5 Reason Semantics
 
@@ -1897,12 +1897,12 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `RollingOut` | Active phased rollout in progress, no issues | N/A (progressing) |
 | `ProbeFailure` | One or more readiness probes failing (on Ready: health; on Progressing: rollout stuck on probes) | Context-dependent |
 | `ResolutionFailed` | Bundle resolution failed (package/version not found, ambiguous) | Yes |
-| `PullFailed` | Bundle image pull failed (auth, network, missing image) | Yes |
+| `ImagePullFailed` | Bundle image pull failed (auth, network, missing image) | Yes |
 | `ValidationFailed` | CE validation failed (ServiceAccount not found, etc.) | Yes |
 | `AuthorizationFailed` | RBAC pre-authorization failed (ServiceAccount lacks permissions) | Yes |
 | `ContentFailed` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
 | `PreflightFailed` | Preflight check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
-| `CollisionDetected` | Object ownership conflict — another controller owns the resource | Yes |
+| `ObjectCollisionDetected` | Object ownership conflict — another controller owns the resource | Yes |
 | `ValidationFailed` | Preflight or dry-run validation failed (on CE: SA not found, etc.; on COS: admission webhook, etc.) | Yes |
 | `Retrying` | COS-level transient error (secret resolution, watch setup, engine error) | Yes |
 | `Blocked` | Terminal error requiring manual intervention | No |
@@ -1940,7 +1940,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Remove `ClusterObjectSetTypeSucceeded` condition constant
   - Remove `ClusterObjectSetReasonProbeFailure` (replaced by shared `ReasonProbeFailure`)
   - Remove `ClusterObjectSetReasonBlocked` (replaced by shared `ReasonBlocked`)
-  - Add `ClusterObjectSetReasonCollisionDetected` and `ClusterObjectSetReasonValidationFailed` reasons
+  - Add `ClusterObjectSetReasonObjectCollisionDetected` and `ClusterObjectSetReasonValidationFailed` reasons
   - Add `SucceededAt *metav1.Time` field to `ClusterObjectSetStatus`
   - Add `Phases []PhaseStatus` field to `ClusterObjectSetStatus`
   - Add `PhaseStatus` and `PhaseStatusState` types
@@ -1976,7 +1976,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Update `ensureFailureConditionsWithReason` for new condition set (add Ready)
 - `conditionsets/conditionsets.go`:
   - Add `TypeReady` to `ConditionTypes`
-  - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonPullFailed`, `ReasonValidationFailed`, `ReasonAuthorizationFailed`, `ReasonContentFailed`, `ReasonPreflightFailed` to `ConditionReasons`
+  - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonImagePullFailed`, `ReasonValidationFailed`, `ReasonAuthorizationFailed`, `ReasonContentFailed`, `ReasonPreflightFailed` to `ConditionReasons`
 - Update all tests
 
 ### 5.4 Documentation and Migration
@@ -2002,7 +2002,7 @@ Events on the ClusterExtension provide a time-series trail visible via `kubectl 
 | Rollout failed (terminal) | Warning | RolloutFailed | `"Rollout blocked: invalid ClusterExtension configuration: unknown field \"invalidKey\""` |
 | Progressing reason changed | Warning | ProgressingReasonChanged | `"Progressing reason changed from RollingOut to ProbeFailure: Deployment my-ns/my-deploy not ready"` |
 | Resolution failed | Warning | ResolutionFailed | `"No bundles found for package \"my-operator\" matching version \">=99.0.0\" in channels [stable]"` |
-| Image pull failed | Warning | PullFailed | `"Error copying image: authentication required"` |
+| Image pull failed | Warning | ImagePullFailed | `"Error copying image: authentication required"` |
 | Authorization failed | Warning | AuthorizationFailed | `"Pre-authorization failed: service account requires permissions: [create deployments.apps]"` |
 | Progress deadline exceeded | Warning | ProgressDeadlineExceeded | `"Revision has not rolled out for 30 minute(s)"` |
 
@@ -2022,7 +2022,7 @@ Events on the ClusterObjectSet provide phase-level debugging context.
 |------------|------|--------|-----------------|
 | Phase completed | Normal | PhaseComplete | `"Phase \"crds\" complete (2/5 phases done)"` |
 | Phase failed (probe) | Warning | ProbeFailure | `"Phase \"deploy\" probe failure: Deployment my-ns/my-deploy: updatedReplicas (0) != replicas (3)"` |
-| Object collision | Warning | CollisionDetected | `"Object collision in phase \"roles\": Deployment my-ns/deploy owned by ClusterObjectSet/other-ext-1"` |
+| Object collision | Warning | ObjectCollisionDetected | `"Object collision in phase \"roles\": Deployment my-ns/deploy owned by ClusterObjectSet/other-ext-1"` |
 | Revision blocked | Warning | Blocked | `"Revision blocked: referenced secrets are not immutable"` |
 | Revision archived | Normal | Archived | `"Revision archived — superseded by revision 3"` |
 | Revision succeeded | Normal | Succeeded | `"Revision 2 rolled out successfully"` |
