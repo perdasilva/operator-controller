@@ -587,8 +587,8 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "False"
     reason: RollingOut
@@ -734,8 +734,8 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "False"
     reason: RollingOut
@@ -838,14 +838,14 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
     observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "True"
     reason: ResolutionFailed
@@ -887,14 +887,14 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
     observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "False"
     reason: InvalidConfiguration
@@ -1132,14 +1132,14 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
     observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "True"
     reason: AuthorizationFailed
@@ -1185,14 +1185,14 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
     observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "True"
     reason: ContentFailed
@@ -1239,8 +1239,8 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "False"
     reason: ProbeFailure
@@ -1341,14 +1341,14 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
     observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "True"
     reason: Retrying
@@ -1507,14 +1507,14 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
     observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "False"
     reason: Blocked
@@ -1587,14 +1587,14 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
-    observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
     observedGeneration: 2
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "True"
     reason: Retrying
@@ -1754,7 +1754,7 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
     observedGeneration: 1
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "False"
     reason: ProbeFailure
@@ -1765,7 +1765,7 @@ status:
     status: "False"
     reason: ProgressDeadlineExceeded
     message: "Revision has not rolled out for 30 minute(s). Last status: Revision 2.0.0 is rolling out."
-    observedGeneration: 1
+    observedGeneration: 2
     lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
@@ -1864,18 +1864,18 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
     observedGeneration: 1
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
     observedGeneration: 1
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "True"
     reason: PreflightFailed
     message: "error for resolved bundle my-operator with version 2.0.0: CRD upgrade safety check failed: stored version v1alpha1 removed in upgrade"
-    observedGeneration: 1
+    observedGeneration: 2
     lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
@@ -1917,13 +1917,13 @@ status:
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
     observedGeneration: 1
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
     observedGeneration: 1
-    lastTransitionTime: "2026-07-07T10:00:00Z"
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "True"
     reason: Retrying
