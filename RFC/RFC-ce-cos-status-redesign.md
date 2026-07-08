@@ -533,7 +533,7 @@ status:
 ```
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   REASON       AGE
-my-operator-1   1          False   True          Deploying   30s
+my-operator-1   1          False   True          RollingOut   30s
 ```
 
 ```yaml
@@ -616,7 +616,7 @@ status:
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   REASON       AGE
 my-operator-1   1          True    False         Succeeded    5d
-my-operator-2   2          False   True          Deploying   30s
+my-operator-2   2          False   True          RollingOut   30s
 ```
 
 **Key UX point**: `Ready=False` — the new revision's objects are still rolling out, so the on-cluster state is in transition. `Installed=True` confirms the previous version was installed. `Version=1.0.0` shows what was installed, `Operation=Upgrade` and `Target=2.0.0` show where it's headed. The COS table shows two active revisions. Once COS-2 completes, Ready returns to True.
@@ -633,7 +633,7 @@ This shows the detailed phase-level state during the same upgrade from 3.3, view
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   REASON       AGE
 my-operator-1   1          True    False         Succeeded    5d
-my-operator-2   2          False   True          Deploying   2m
+my-operator-2   2          False   True          RollingOut   2m
 ```
 
 ```yaml
@@ -1268,7 +1268,7 @@ status:
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   REASON       AGE
 my-operator-1   1          True    False         Succeeded    5d
-my-operator-2   2          False   True          Deploying   5m
+my-operator-2   2          False   True          RollingOut   5m
 ```
 
 ```yaml
@@ -2093,7 +2093,6 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ProbeFailure` | One or more readiness probes failing (on Ready: health; on Progressing: rollout stuck on probes) | Context-dependent |
 | `ResolutionFailed` | Bundle resolution failed (package/version not found, ambiguous) | Yes |
 | `ImagePullFailed` | Bundle image pull failed (auth, network, missing image) | Yes |
-| `ValidationFailed` | CE validation failed (ServiceAccount not found, etc.) | Yes |
 | `AuthorizationFailed` | RBAC pre-authorization failed (ServiceAccount lacks permissions) | Yes |
 | `UnsupportedContent` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
 | `SafetyCheckFailed` | Preflight check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
