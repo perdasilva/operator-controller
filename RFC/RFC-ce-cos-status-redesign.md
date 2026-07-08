@@ -344,7 +344,7 @@ const (
 | Condition | Status=True | Status=False | Status=Unknown |
 |-----------|------------|-------------|----------------|
 | **Ready** | `ProbesSucceeded` — all managed objects pass probes | `ProbeFailure` — one or more probe failures; `RollingOut` — rollout not yet complete | `Reconciling` — transient error; `Archived` — revision archived |
-| **Progressing** | `RollingOut` — active rollout; `Retrying` — retrying after transient error | `Succeeded` — rollout complete; `Blocked` — terminal error; `Archived` — revision archived; `ProgressDeadlineExceeded` — deadline exceeded | — |
+| **Progressing** | `RollingOut` — active rollout; `CollisionDetected` — object ownership conflict; `ValidationFailed` — preflight/dry-run failure; `Retrying` — other transient error | `Succeeded` — rollout complete; `Blocked` — terminal error; `Archived` — revision archived; `ProgressDeadlineExceeded` — deadline exceeded | — |
 
 **Key change**: `Progressing=True, Reason=Succeeded` (the same bug as CE) is fixed to `Progressing=False, Reason=Succeeded`.
 
@@ -389,6 +389,8 @@ type ClusterObjectSetStatus struct {
     //
     // The Progressing condition represents whether the revision is actively rolling out:
     //   - When status is True and reason is RollingOut, the revision is actively making progress.
+    //   - When status is True and reason is CollisionDetected, an object ownership conflict was detected.
+    //   - When status is True and reason is ValidationFailed, a preflight or dry-run validation failed.
     //   - When status is True and reason is Retrying, the revision encountered a transient error and is retrying.
     //   - When status is False and reason is Succeeded, the revision has completed its rollout.
     //   - When status is False and reason is Blocked, the revision encountered a terminal error requiring manual intervention.
@@ -1160,7 +1162,7 @@ my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY    PROGRESSING   REASON      AGE
 my-operator-1   1          True     False         Succeeded   5d
-my-operator-2   2          <none>   True          Retrying    2m
+my-operator-2   2          <none>   True          CollisionDetected    2m
 ```
 
 ```yaml
@@ -1200,7 +1202,7 @@ status:
     message: "revision object collisions in phase 2\nObject Deployment..."
   - type: Progressing
     status: "True"
-    reason: Retrying
+    reason: CollisionDetected
     message: "revision object collisions in phase 2\nObject Deployment.apps/v1 my-ns/conflicting-deploy: collision with controller owned by ClusterObjectSet/other-ext-1"
   phases:
   - name: namespaces
@@ -1353,7 +1355,7 @@ my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY    PROGRESSING   REASON      AGE
 my-operator-1   1          True     False         Succeeded   5d
-my-operator-2   2          <none>   True          Retrying    3m
+my-operator-2   2          <none>   True          ValidationFailed    3m
 ```
 
 ```yaml
@@ -1393,7 +1395,7 @@ status:
     message: "revision validation error: dry-run apply rejected by webhook: admission controller denied the request"
   - type: Progressing
     status: "True"
-    reason: Retrying
+    reason: ValidationFailed
     message: "revision validation error: dry-run apply rejected by webhook: admission controller denied the request"
   phases:
   - name: namespaces
@@ -1748,6 +1750,8 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ClusterObjectSetReasonArchived` | `"Archived"` | Progressing=False, Ready=Unknown |
 | `ClusterObjectSetReasonProbesSucceeded` | `"ProbesSucceeded"` | Ready=True |
 | `ClusterObjectSetReasonReconciling` | `"Reconciling"` | Ready=Unknown |
+| `ClusterObjectSetReasonCollisionDetected` | `"CollisionDetected"` | Progressing=True |
+| `ClusterObjectSetReasonValidationFailed` | `"ValidationFailed"` | Progressing=True |
 
 **Removed:** `ClusterObjectSetReasonBlocked` (use shared `ReasonBlocked`), `ClusterObjectSetReasonProbeFailure` (use shared `ReasonProbeFailure`), `ClusterObjectSetReasonRetrying` (use shared `ReasonRetrying`).
 
@@ -1772,7 +1776,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | Condition | True | False | Unknown |
 |-----------|------|-------|---------|
 | **Ready** | ProbesSucceeded | ProbeFailure, RollingOut | Reconciling, Archived |
-| **Progressing** | RollingOut, Retrying | Succeeded, Blocked, Archived, ProgressDeadlineExceeded | — |
+| **Progressing** | RollingOut, CollisionDetected, ValidationFailed, Retrying | Succeeded, Blocked, Archived, ProgressDeadlineExceeded | — |
 
 ### 4.5 Reason Semantics
 
@@ -1790,7 +1794,9 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `AuthorizationFailed` | RBAC pre-authorization failed (ServiceAccount lacks permissions) | Yes |
 | `ContentFailed` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
 | `PreflightFailed` | Preflight check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
-| `Retrying` | COS-level transient error (collision, validation, etc.) | Yes |
+| `CollisionDetected` | Object ownership conflict — another controller owns the resource | Yes |
+| `ValidationFailed` | Preflight or dry-run validation failed (on CE: SA not found, etc.; on COS: admission webhook, etc.) | Yes |
+| `Retrying` | COS-level transient error (secret resolution, watch setup, engine error) | Yes |
 | `Blocked` | Terminal error requiring manual intervention | No |
 | `InvalidConfiguration` | User configuration error requiring spec change | No |
 | `ProgressDeadlineExceeded` | Rollout exceeded configured time limit | No |
@@ -1826,6 +1832,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Remove `ClusterObjectSetTypeSucceeded` condition constant
   - Remove `ClusterObjectSetReasonProbeFailure` (replaced by shared `ReasonProbeFailure`)
   - Remove `ClusterObjectSetReasonBlocked` (replaced by shared `ReasonBlocked`)
+  - Add `ClusterObjectSetReasonCollisionDetected` and `ClusterObjectSetReasonValidationFailed` reasons
   - Add `SucceededAt *metav1.Time` field to `ClusterObjectSetStatus`
   - Add `Phases []PhaseStatus` field to `ClusterObjectSetStatus`
   - Add `PhaseStatus` and `PhaseStatusState` types
