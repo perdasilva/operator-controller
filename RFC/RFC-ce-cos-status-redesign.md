@@ -1324,7 +1324,7 @@ my-operator   True    True          Retrying   1.0.0     Upgrade     2.0.0    5d
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON     VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          Retrying   1.0.0     Upgrade     2.0.0    revision object collisions in phase roles: Deployment.apps/v1 my-ns...   5d
+my-operator   True    True          Retrying   1.0.0     Upgrade     2.0.0    Object collision in phase "roles": Deployment.apps/v1 my-ns/conflic...   5d
 
 ```
 $ kubectl get clusterobjectsets
@@ -1352,7 +1352,7 @@ status:
   - type: Progressing
     status: "True"
     reason: Retrying
-    message: "revision object collisions in phase roles: Deployment.apps/v1 my-ns/conflicting-deploy: collision with controller owned by ClusterObjectSet/other-ext-1"
+    message: "Object collision in phase \"roles\": Deployment.apps/v1 my-ns/conflicting-deploy owned by ClusterObjectSet/other-ext-1"
     observedGeneration: 2
     lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
@@ -1373,13 +1373,13 @@ status:
   - type: Ready
     status: "Unknown"
     reason: Reconciling
-    message: "revision object collisions in phase 2\nObject Deployment..."
+    message: "Object collision in phase \"roles\": Deployment.apps/v1 my-ns/conflicting-deploy owned by ClusterObjectSet/other-ext-1"
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: ObjectCollisionDetected
-    message: "revision object collisions in phase 2\nObject Deployment.apps/v1 my-ns/conflicting-deploy: collision with controller owned by ClusterObjectSet/other-ext-1"
+    message: "Object collision in phase \"roles\": Deployment.apps/v1 my-ns/conflicting-deploy owned by ClusterObjectSet/other-ext-1"
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   phases:
@@ -1394,6 +1394,8 @@ status:
     lastTransitionTime: "2026-07-07T10:00:08Z"
     message: "Object collision: Deployment.apps/v1 my-ns/conflicting-deploy owned by ClusterObjectSet/other-ext-1"
 ```
+
+**Current vs proposed message format**: The current COS controller formats collision messages as `"revision object collisions in phase %d\n%s"` using the phase index (e.g., `phase 2`) and the raw `ObjectResult.String()` output. This RFC proposes using the phase name instead of the index (e.g., `phase "roles"`) and a cleaner single-line format: `"Object collision in phase \"<name>\": <Kind>.<GroupVersion> <namespace>/<name> owned by <OwnerKind>/<OwnerName>"`.
 
 **Key UX point**: The CE surfaces the collision error — `Progressing=True/Retrying` with the collision details. The user can diagnose the conflict from the CE alone. `Ready=True` because the old version is still healthy.
 
