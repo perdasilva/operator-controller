@@ -188,7 +188,7 @@ no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade 
 
 | Condition | Status=True | Status=False | Status=Unknown |
 |-----------|------------|-------------|----------------|
-| **Installed** | `Succeeded` — bundle installed | `Failed` — installation error; `Absent` — no installation yet, healthy rollout in progress | `Failed` — cannot determine |
+| **Installed** | `Succeeded` — a bundle is installed | `Absent` — no bundle installed | — |
 | **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — no bundle installed (nothing deployed); `ProbeFailure` — specific probe failure on managed resources; `RollingOut` — objects in transition, probes not yet passing | `Pending` — initial state before first reconcile |
 | **Progressing** | `RollingOut` — active rollout, no issues; `ProbeFailure` — rollout active, probes failing; `ResolutionFailed` — bundle not found; `PullFailed` — image pull error; `ValidationFailed` — CE validation error; `AuthorizationFailed` — RBAC insufficient; `ContentFailed` — bundle content unsupported; `PreflightFailed` — preflight check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
 | **Deprecated** | `Deprecated` — any deprecation exists | `NotDeprecated` — no deprecation | `DeprecationStatusUnknown` — catalog data unavailable |
@@ -736,7 +736,7 @@ status:
   conditions:
   - type: Installed
     status: "False"
-    reason: Failed
+    reason: Absent
     message: "No bundle installed"
   - type: Ready
     status: "False"
@@ -851,7 +851,7 @@ status:
   conditions:
   - type: Installed
     status: "False"
-    reason: Failed
+    reason: Absent
     message: "No bundle installed"
   - type: Ready
     status: "False"
@@ -890,7 +890,7 @@ status:
   conditions:
   - type: Installed
     status: "False"
-    reason: Failed
+    reason: Absent
     message: "No bundle installed"
   - type: Ready
     status: "False"
@@ -927,7 +927,7 @@ status:
   conditions:
   - type: Installed
     status: "False"
-    reason: Failed
+    reason: Absent
     message: "No bundle installed"
   - type: Ready
     status: "False"
@@ -965,8 +965,8 @@ my-operator   False   True          ValidationFailed   <none>                   
 status:
   conditions:
   - type: Installed
-    status: "Unknown"
-    reason: Failed
+    status: "False"
+    reason: Absent
     message: "operation cannot proceed due to the following validation error(s): service account \"my-sa\" not found in namespace \"my-ns\""
   - type: Ready
     status: "False"
@@ -1245,7 +1245,7 @@ status:
   conditions:
   - type: Installed
     status: "False"
-    reason: Failed
+    reason: Absent
     message: "No bundle installed"
   - type: Ready
     status: "False"
@@ -1428,7 +1428,7 @@ status:
   conditions:
   - type: Installed
     status: "False"
-    reason: Failed
+    reason: Absent
     message: "No bundle installed"
   - type: Ready
     status: "False"
@@ -1698,7 +1698,6 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | Constant | Value | Used on | CE | COS |
 |----------|-------|---------|-----|-----|
 | `ReasonSucceeded` | `"Succeeded"` | Installed=True, Ready=True, Progressing=False | ✓ | ✓ |
-| `ReasonFailed` | `"Failed"` | Installed=False/Unknown | ✓ | — |
 | `ReasonAbsent` | `"Absent"` | Installed=False, Ready=False | ✓ | — |
 | `ReasonPending` | `"Pending"` | Ready=Unknown | ✓ | — |
 | `ReasonProbeFailure` | `"ProbeFailure"` | Ready=False, Progressing=True (COS probes failing during rollout) | ✓ | ✓ |
@@ -1762,7 +1761,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 
 | Condition | True | False | Unknown |
 |-----------|------|-------|---------|
-| **Installed** | Succeeded | Failed, Absent | Failed |
+| **Installed** | Succeeded | Absent | — |
 | **Ready** | Succeeded | Absent, ProbeFailure, RollingOut | Pending |
 | **Progressing** | RollingOut, ProbeFailure, ResolutionFailed, PullFailed, ValidationFailed, AuthorizationFailed, ContentFailed, PreflightFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
 | **Deprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
@@ -1782,7 +1781,6 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | Reason | Meaning | Retryable? |
 |--------|---------|-----------|
 | `Succeeded` | Operation completed successfully | N/A (terminal success) |
-| `Failed` | Operation failed | Depends on `Progressing`: if `Progressing=True/Retrying`, the controller is retrying; if `Progressing=False`, manual intervention is needed |
 | `Absent` | Resource does not exist yet (neutral, not an error) | N/A |
 | `Pending` | Waiting for initial state to be established | N/A |
 | `RollingOut` | Active phased rollout in progress, no issues | N/A (progressing) |
