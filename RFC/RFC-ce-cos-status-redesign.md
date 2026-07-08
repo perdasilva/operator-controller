@@ -346,7 +346,9 @@ const (
 | **Ready** | `ProbesSucceeded` — all managed objects pass probes | `ProbeFailure` — one or more probe failures; `RollingOut` — rollout not yet complete | `Reconciling` — transient error; `Archived` — revision archived |
 | **Progressing** | `RollingOut` — active rollout; `CollisionDetected` — object ownership conflict; `ValidationFailed` — preflight/dry-run failure; `Retrying` — other transient error | `Succeeded` — rollout complete; `Blocked` — terminal error; `Archived` — revision archived; `ProgressDeadlineExceeded` — deadline exceeded | — |
 
-**Key change**: `Progressing=True, Reason=Succeeded` (the same bug as CE) is fixed to `Progressing=False, Reason=Succeeded`.
+**Key changes**:
+- `Progressing=True, Reason=Succeeded` (the same bug as CE) is fixed to `Progressing=False, Reason=Succeeded`.
+- The `Ready` condition is always set on first reconcile, even if probes haven't been evaluated. Pre-phase errors set `Ready=Unknown/Reconciling` rather than leaving the condition absent. This follows the Kubernetes convention that controllers should signal awareness of a condition on first visit.
 
 ### 2.5 Updated COS Print Columns
 
@@ -368,10 +370,10 @@ Example with multiple revisions including archived:
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   READY    PROGRESSING   REASON      AGE
-my-operator-1   1          <none>   False         Archived    30d
-my-operator-2   2          <none>   False         Archived    5d
-my-operator-3   3          True     False         Succeeded   1d
+NAME            REVISION   READY     PROGRESSING   REASON      AGE
+my-operator-1   1          Unknown   False         Archived    30d
+my-operator-2   2          Unknown   False         Archived    5d
+my-operator-3   3          True      False         Succeeded   1d
 ```
 
 ### 2.6 Complete COS Status Structure
@@ -1160,9 +1162,9 @@ my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   READY    PROGRESSING   REASON      AGE
-my-operator-1   1          True     False         Succeeded   5d
-my-operator-2   2          <none>   True          CollisionDetected    2m
+NAME            REVISION   READY     PROGRESSING   REASON              AGE
+my-operator-1   1          True      False         Succeeded           5d
+my-operator-2   2          Unknown   True          CollisionDetected   2m
 ```
 
 ```yaml
@@ -1235,8 +1237,8 @@ my-operator   False   False         Blocked   <none>    Install   1.0.0    5m
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   READY    PROGRESSING   REASON    AGE
-my-operator-1   1          <none>   False         Blocked   5m
+NAME            REVISION   READY     PROGRESSING   REASON    AGE
+my-operator-1   1          Unknown   False         Blocked   5m
 ```
 
 ```yaml
@@ -1267,6 +1269,10 @@ status:
 # COS my-operator-1 status
 status:
   conditions:
+  - type: Ready
+    status: "Unknown"
+    reason: Reconciling
+    message: "Reconciliation blocked before probe evaluation"
   - type: Progressing
     status: "False"
     reason: Blocked
@@ -1292,9 +1298,9 @@ my-operator   True    False         Blocked   1.0.0     Upgrade   2.0.0    5d
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   READY    PROGRESSING   REASON      AGE
-my-operator-1   1          True     False         Succeeded   5d
-my-operator-2   2          <none>   False         Blocked     1h
+NAME            REVISION   READY     PROGRESSING   REASON      AGE
+my-operator-1   1          True      False         Succeeded   5d
+my-operator-2   2          Unknown   False         Blocked     1h
 ```
 
 ```yaml
@@ -1328,6 +1334,10 @@ status:
 # COS my-operator-2 status
 status:
   conditions:
+  - type: Ready
+    status: "Unknown"
+    reason: Reconciling
+    message: "Reconciliation blocked before probe evaluation"
   - type: Progressing
     status: "False"
     reason: Blocked
@@ -1353,9 +1363,9 @@ my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   READY    PROGRESSING   REASON      AGE
-my-operator-1   1          True     False         Succeeded   5d
-my-operator-2   2          <none>   True          ValidationFailed    3m
+NAME            REVISION   READY     PROGRESSING   REASON             AGE
+my-operator-1   1          True      False         Succeeded          5d
+my-operator-2   2          Unknown   True          ValidationFailed   3m
 ```
 
 ```yaml
