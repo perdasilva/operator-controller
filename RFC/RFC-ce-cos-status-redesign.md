@@ -175,23 +175,23 @@ Example (default):
 
 ```
 $ kubectl get clusterextensions
-NAME              READY   PROGRESSING   REASON                VERSION   OPERATION       TARGET   AGE
-cert-manager      True    False         Succeeded             1.14.0                           30d
-my-operator       False   True          RollingOut            1.0.0     Upgrade       2.0.0    5d
-broken-operator   False   False         Blocked               <none>    Install       1.0.0    2h
-pull-fail         False   True          ImagePullFailed            <none>    Install       1.0.0    5m
-no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade       2.0.0    5d
+NAME              READY   PROGRESSING   REASON                VERSION   OPERATION   TARGET   AGE
+cert-manager      True    False         Succeeded             1.14.0                         30d
+my-operator       False   True          RollingOut            1.0.0     Upgrade     2.0.0    5d
+broken-operator   False   False         Blocked               <none>    Install     1.0.0    2h
+pull-fail         False   True          ImagePullFailed       <none>    Install     1.0.0    5m
+no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade     2.0.0    5d
 ```
 
 Example (wide — includes MESSAGE):
 
 ```
 $ kubectl get clusterextensions -o wide
-NAME              READY   PROGRESSING   REASON                VERSION   OPERATION   TARGET   MESSAGE                                                                            AGE
-cert-manager      True    False         Succeeded             1.14.0                       Desired state reached                                                                30d
-broken-operator   False   False         Blocked               <none>    Install   1.0.0    error parsing image reference "!!!invalid": invalid reference format                2h
-pull-fail         False   True          ImagePullFailed            <none>    Install   1.0.0    error copying image: authentication required                                       5m
-no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade   2.0.0    pre-authorization failed: SA requires permissions: [create deployments.apps]        5d
+NAME              READY   PROGRESSING   REASON                VERSION   OPERATION   TARGET   MESSAGE                                                                        AGE
+cert-manager      True    False         Succeeded             1.14.0                         Desired state reached                                                          30d
+broken-operator   False   False         Blocked               <none>    Install     1.0.0    error parsing image reference "!!!invalid": invalid reference format           2h
+pull-fail         False   True          ImagePullFailed       <none>    Install     1.0.0    error copying image: authentication required                                   5m
+no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade     2.0.0    pre-authorization failed: SA requires permissions: [create deployments.apps]   5d
 ```
 
 ### 1.7 Complete CE Condition Summary
@@ -456,7 +456,7 @@ The extension is installed and healthy. No work in progress.
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON      VERSION   OPERATION   TARGET   AGE
-my-operator   True    False         Succeeded   1.0.0                        5d
+my-operator   True    False         Succeeded   1.0.0                          5d
 ```
 
 ```yaml
@@ -498,7 +498,7 @@ A new ClusterExtension is being installed for the first time. The COS is rolling
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
-my-operator   False   True          RollingOut   <none>    Install   1.0.0    30s
+my-operator   False   True          RollingOut   <none>    Install     1.0.0    30s
 ```
 
 ```yaml
@@ -577,7 +577,7 @@ The user changed the version constraint. A new COS revision is rolling out while
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
-my-operator   False   True          RollingOut   1.0.0     Upgrade   2.0.0    5d
+my-operator   False   True          RollingOut   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```yaml
@@ -723,7 +723,7 @@ The user changed configuration (e.g., service account, inline config) without ch
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON       VERSION   OPERATION       TARGET   AGE
+NAME          READY   PROGRESSING   REASON       VERSION   OPERATION     TARGET   AGE
 my-operator   False   True          RollingOut   1.0.0     Reconfigure   1.0.0    5d
 ```
 
@@ -777,13 +777,13 @@ The user specifies a package name or version that doesn't exist in any catalog. 
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   AGE
-my-operator   False   True          ResolutionFailed   <none>                       2m
+my-operator   False   True          ResolutionFailed   <none>                         2m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   True          ResolutionFailed   <none>                       no bundles found for package \"my-operator\" matching version \">=9...   2m
+my-operator   False   True          ResolutionFailed   <none>                         no bundles found for package \"my-operator\" matching version \">=9...   2m
 
 ```yaml
 status:
@@ -823,13 +823,13 @@ The user requests an upgrade to a version that doesn't exist, but the old versio
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   AGE
-my-operator   True    True          ResolutionFailed   1.0.0                        5d
+my-operator   True    True          ResolutionFailed   1.0.0                          5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          ResolutionFailed   1.0.0                        unable to upgrade to version >=99.0.0: no bundles found for package...   5d
+my-operator   True    True          ResolutionFailed   1.0.0                          unable to upgrade to version >=99.0.0: no bundles found for package...   5d
 
 ```yaml
 status:
@@ -872,13 +872,13 @@ The user provides inline configuration that doesn't match the bundle's config sc
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON                 VERSION   OPERATION   TARGET   AGE
-my-operator   True    False         InvalidConfiguration   1.0.0     Upgrade   2.0.0    5d
+my-operator   True    False         InvalidConfiguration   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                 VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    False         InvalidConfiguration   1.0.0     Upgrade   2.0.0    error for resolved bundle my-operator with version 2.0.0: invalid C...   5d
+my-operator   True    False         InvalidConfiguration   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: invalid C...   5d
 
 ```yaml
 status:
@@ -925,13 +925,13 @@ Same as above but nothing was previously installed.
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON                 VERSION   OPERATION   TARGET   AGE
-my-operator   False   False         InvalidConfiguration   <none>    Install   1.0.0    2m
+my-operator   False   False         InvalidConfiguration   <none>    Install     1.0.0    2m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                 VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   False         InvalidConfiguration   <none>    Install   1.0.0    error for resolved bundle my-operator with version 1.0.0: invalid C...   2m
+my-operator   False   False         InvalidConfiguration   <none>    Install     1.0.0    error for resolved bundle my-operator with version 1.0.0: invalid C...   2m
 
 ```yaml
 status:
@@ -974,14 +974,14 @@ The bundle image cannot be pulled (e.g., registry unreachable, auth failure, ima
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
-my-operator   False   True          ImagePullFailed   <none>    Install   1.0.0    5m
+NAME          READY   PROGRESSING   REASON            VERSION   OPERATION   TARGET   AGE
+my-operator   False   True          ImagePullFailed   <none>    Install     1.0.0    5m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
-NAME          READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   True          ImagePullFailed   <none>    Install   1.0.0    error for resolved bundle my-operator with version 1.0.0: error cop...   5m
+NAME          READY   PROGRESSING   REASON            VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
+my-operator   False   True          ImagePullFailed   <none>    Install     1.0.0    error for resolved bundle my-operator with version 1.0.0: error cop...   5m
 
 ```yaml
 status:
@@ -1023,13 +1023,13 @@ The bundle's image reference string is malformed and cannot be parsed.
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON    VERSION   OPERATION   TARGET   AGE
-my-operator   False   False         Blocked   <none>    Install   1.0.0    2m
+my-operator   False   False         Blocked   <none>    Install     1.0.0    2m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON    VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   False         Blocked   <none>    Install   1.0.0    error for resolved bundle my-operator with version 1.0.0: error par...   2m
+my-operator   False   False         Blocked   <none>    Install     1.0.0    error for resolved bundle my-operator with version 1.0.0: error par...   2m
 
 ```yaml
 status:
@@ -1073,13 +1073,13 @@ The ServiceAccount specified in `spec.serviceAccount.name` does not exist.
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   AGE
-my-operator   False   True          ValidationFailed   <none>                       1m
+my-operator   False   True          ValidationFailed   <none>                         1m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   True          ValidationFailed   <none>                       operation cannot proceed due to the following validation error(s): ...   1m
+my-operator   False   True          ValidationFailed   <none>                         operation cannot proceed due to the following validation error(s): ...   1m
 
 ```yaml
 status:
@@ -1117,13 +1117,13 @@ The ServiceAccount exists but lacks RBAC permissions for the bundle's managed re
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON                VERSION   OPERATION   TARGET   AGE
-my-operator   True    True          AuthorizationFailed   1.0.0     Upgrade   2.0.0    5d
+my-operator   True    True          AuthorizationFailed   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          AuthorizationFailed   1.0.0     Upgrade   2.0.0    error for resolved bundle my-operator with version 2.0.0: creating ...   5d
+my-operator   True    True          AuthorizationFailed   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: creating ...   5d
 
 ```yaml
 status:
@@ -1169,14 +1169,14 @@ The bundle contains unsupported features like APIServiceDefinitions or unsupport
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON          VERSION   OPERATION   TARGET   AGE
-my-operator   True    True          UnsupportedContent   1.0.0     Upgrade   2.0.0    5d
+NAME          READY   PROGRESSING   REASON               VERSION   OPERATION   TARGET   AGE
+my-operator   True    True          UnsupportedContent   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
-NAME          READY   PROGRESSING   REASON          VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          UnsupportedContent   1.0.0     Upgrade   2.0.0    error for resolved bundle my-operator with version 2.0.0: unsupport...   5d
+NAME          READY   PROGRESSING   REASON               VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
+my-operator   True    True          UnsupportedContent   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: unsupport...   5d
 
 ```yaml
 status:
@@ -1223,13 +1223,13 @@ The COS revision is stuck because a Deployment's pods are not ready (e.g., image
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON         VERSION   OPERATION   TARGET   AGE
-my-operator   False   True          ProbeFailure   1.0.0     Upgrade   2.0.0    5d
+my-operator   False   True          ProbeFailure   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON         VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   True          ProbeFailure   1.0.0     Upgrade   2.0.0    Rolling out bundle my-operator v2.0.0: Object Deployment.apps/v1 my...   5d
+my-operator   False   True          ProbeFailure   1.0.0     Upgrade     2.0.0    Rolling out bundle my-operator v2.0.0: Object Deployment.apps/v1 my...   5d
 
 ```yaml
 # CE status
@@ -1318,18 +1318,18 @@ A managed object is already owned by another controller. The collision protectio
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON     VERSION   OPERATION   TARGET   AGE
-my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
+my-operator   True    True          Retrying   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON     VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    revision object collisions in phase roles: Deployment.apps/v1 my-ns...   5d
+my-operator   True    True          Retrying   1.0.0     Upgrade     2.0.0    revision object collisions in phase roles: Deployment.apps/v1 my-ns...   5d
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   READY     PROGRESSING   REASON              AGE
-my-operator-1   1          True      False         Succeeded           5d
+NAME            REVISION   READY     PROGRESSING   REASON                    AGE
+my-operator-1   1          True      False         Succeeded                 5d
 my-operator-2   2          Unknown   True          ObjectCollisionDetected   2m
 ```
 
@@ -1408,13 +1408,13 @@ A Secret referenced by the COS is not marked as immutable. This is a terminal bl
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON    VERSION   OPERATION   TARGET   AGE
-my-operator   False   False         Blocked   <none>    Install   1.0.0    5m
+my-operator   False   False         Blocked   <none>    Install     1.0.0    5m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON    VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   False         Blocked   <none>    Install   1.0.0    the following secrets are not immutable (referenced secrets must ha...   5m
+my-operator   False   False         Blocked   <none>    Install     1.0.0    the following secrets are not immutable (referenced secrets must ha...   5m
 
 ```
 $ kubectl get clusterobjectsets
@@ -1484,13 +1484,13 @@ A referenced Secret was deleted and recreated with different content after the C
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON    VERSION   OPERATION   TARGET   AGE
-my-operator   True    False         Blocked   1.0.0     Upgrade   2.0.0    5d
+my-operator   True    False         Blocked   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON    VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    False         Blocked   1.0.0     Upgrade   2.0.0    resolved content of 1 phase(s) has changed: phase \"deploy\" (expec...   5d
+my-operator   True    False         Blocked   1.0.0     Upgrade     2.0.0    resolved content of 1 phase(s) has changed: phase \"deploy\" (expec...   5d
 
 ```
 $ kubectl get clusterobjectsets
@@ -1564,13 +1564,13 @@ Boxcutter preflight validation fails (e.g., dry-run apply rejected by admission 
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON     VERSION   OPERATION   TARGET   AGE
-my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
+my-operator   True    True          Retrying   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON     VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    revision validation error: dry-run apply rejected by webhook: admis...   5d
+my-operator   True    True          Retrying   1.0.0     Upgrade     2.0.0    revision validation error: dry-run apply rejected by webhook: admis...   5d
 
 ```
 $ kubectl get clusterobjectsets
@@ -1650,13 +1650,13 @@ The first install has been stuck for longer than the configured progress deadlin
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON                     VERSION   OPERATION   TARGET   AGE
-my-operator   False   False         ProgressDeadlineExceeded   <none>    Install   1.0.0    35m
+my-operator   False   False         ProgressDeadlineExceeded   <none>    Install     1.0.0    35m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                     VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   False         ProgressDeadlineExceeded   <none>    Install   1.0.0    Revision has not rolled out for 30 minute(s). Last status: Revision...   35m
+my-operator   False   False         ProgressDeadlineExceeded   <none>    Install     1.0.0    Revision has not rolled out for 30 minute(s). Last status: Revision...   35m
 
 ```yaml
 # CE status
@@ -1738,13 +1738,13 @@ An upgrade has been stuck too long. The old version is still installed and healt
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON                     VERSION   OPERATION   TARGET   AGE
-my-operator   False   False         ProgressDeadlineExceeded   1.0.0     Upgrade   2.0.0    5d
+my-operator   False   False         ProgressDeadlineExceeded   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                     VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   False         ProgressDeadlineExceeded   1.0.0     Upgrade   2.0.0    Revision has not rolled out for 30 minute(s). Last status: Revision...   5d
+my-operator   False   False         ProgressDeadlineExceeded   1.0.0     Upgrade     2.0.0    Revision has not rolled out for 30 minute(s). Last status: Revision...   5d
 
 ```yaml
 status:
@@ -1798,7 +1798,7 @@ All catalogs have been deleted but the extension has a previously installed vers
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON      VERSION   OPERATION   TARGET   AGE
-my-operator   True    False         Succeeded   1.0.0                        5d
+my-operator   True    False         Succeeded   1.0.0                          5d
 ```
 
 ```yaml
@@ -1848,13 +1848,13 @@ The upgrade includes CRD changes that fail the safety check (e.g., removing a st
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON            VERSION   OPERATION   TARGET   AGE
-my-operator   True    True          PreflightFailed   1.0.0     Upgrade   2.0.0    5d
+my-operator   True    True          PreflightFailed   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON            VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          PreflightFailed   1.0.0     Upgrade   2.0.0    error for resolved bundle my-operator with version 2.0.0: CRD upgra...   5d
+my-operator   True    True          PreflightFailed   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: CRD upgra...   5d
 
 ```yaml
 status:
@@ -1901,13 +1901,13 @@ During migration from Helm to boxcutter storage, the migration step fails.
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON     VERSION   OPERATION   TARGET   AGE
-my-operator   True    True          Retrying   1.0.0                        30d
+my-operator   True    True          Retrying   1.0.0                          30d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON     VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          Retrying   1.0.0                        migrating storage: listing ClusterObjectSets before attempting migr...   30d
+my-operator   True    True          Retrying   1.0.0                          migrating storage: listing ClusterObjectSets before attempting migr...   30d
 
 ```yaml
 status:
@@ -1950,10 +1950,10 @@ The print columns work well for managing multiple extensions at scale:
 ```
 $ kubectl get clusterextensions
 NAME              READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
-cert-manager      True    False         Succeeded    1.14.0                       30d
-my-operator       False   True          RollingOut   1.0.0     Upgrade   2.0.0    5d
-broken-operator   False   False         Blocked      <none>    Install   1.0.0    2h
-deprecated-op     True    False         Succeeded    3.2.1                        90d
+cert-manager      True    False         Succeeded    1.14.0                         30d
+my-operator       False   True          RollingOut   1.0.0     Upgrade     2.0.0    5d
+broken-operator   False   False         Blocked      <none>    Install     1.0.0    2h
+deprecated-op     True    False         Succeeded    3.2.1                          90d
 ```
 
 At a glance:
