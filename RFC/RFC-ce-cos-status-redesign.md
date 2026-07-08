@@ -45,8 +45,15 @@ This RFC proposes changes across both the CE and COS APIs to make the CE self-su
 
 **Proposed (fixed)**:
 - `Progressing=False, Reason=Succeeded` → "finished, not progressing anymore"
-- `Progressing=True, Reason=Retrying` → "retrying after error" (unchanged)
-- `Progressing=True, Reason=RollingOut` → "active rollout" (unchanged)
+- `Progressing=True, Reason=RollingOut` → "active rollout, no issues" (unchanged)
+- `Progressing=True, Reason=ProbeFailure` → "rollout in progress but probes failing"
+- `Progressing=True, Reason=ResolutionFailed` → "bundle resolution failed, retrying"
+- `Progressing=True, Reason=PullFailed` → "image pull failed, retrying"
+- `Progressing=True, Reason=ValidationFailed` → "CE validation failed (e.g., ServiceAccount not found), retrying"
+- `Progressing=True, Reason=AuthorizationFailed` → "RBAC insufficient, retrying"
+- `Progressing=True, Reason=ContentFailed` → "bundle content unsupported, retrying"
+- `Progressing=True, Reason=PreflightFailed` → "CRD safety or other preflight check failed, retrying"
+- `Progressing=True, Reason=Retrying` → "COS-level transient error, retrying"
 - `Progressing=False, Reason=Blocked` → "terminal error" (unchanged)
 - `Progressing=False, Reason=InvalidConfiguration` → "invalid configuration, requires manual fix"
 - `Progressing=False, Reason=ProgressDeadlineExceeded` → "timed out"
@@ -135,7 +142,8 @@ The CE controller currently mirrors COS `Available` and `Progressing` conditions
 **Critical: CE must surface COS blocking errors.** When the latest rolling-out COS has a terminal error (`Progressing=False/Blocked`, `Progressing=False/ProgressDeadlineExceeded`), the CE controller must detect this and reflect it in the CE's `Progressing` condition. Without this, the CE would show `Progressing=True/RollingOut` while the COS is terminally stuck — leaving the user unable to diagnose the problem from the CE alone.
 
 Translation rules for the CE `Progressing` condition from COS state:
-- COS `Progressing=True/RollingOut` → CE `Progressing=True/RollingOut`. If the COS also has `Ready=False/ProbeFailure`, the CE Progressing message should include the probe failure detail (e.g., "Rolling out bundle my-operator v2.0.0: Deployment my-ns/my-deploy: updatedReplicas (0) != replicas (3)").
+- COS `Progressing=True/RollingOut` AND COS `Ready=False/ProbeFailure` → CE `Progressing=True/ProbeFailure` with the probe failure detail. This distinguishes a stuck rollout from a healthy one.
+- COS `Progressing=True/RollingOut` AND COS `Ready=False/RollingOut` → CE `Progressing=True/RollingOut` (normal progress, no issues).
 - COS `Progressing=True/Retrying` → CE `Progressing=True/Retrying` with the COS error message (collisions, validation errors, etc.)
 - COS `Progressing=False/Blocked` → CE `Progressing=False/Blocked` with the COS error message
 - COS `Progressing=False/ProgressDeadlineExceeded` → CE `Progressing=False/ProgressDeadlineExceeded` with the COS message
@@ -152,7 +160,7 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 |--------|---------|-----------|
 | Ready | `.status.conditions[?(@.type=='Ready')].status` | Primary health signal — the first thing users check |
 | Progressing | `.status.conditions[?(@.type=='Progressing')].status` | Is something actively happening? Standard Kubernetes boolean |
-| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason: `Succeeded` (done), `RollingOut` (active), `Retrying` (error, retrying), `Blocked` (terminal), `InvalidConfiguration` (fix spec), `ProgressDeadlineExceeded` (timed out) |
+| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason. Each reason identifies a specific error category: `Succeeded`, `RollingOut`, `ProbeFailure`, `ResolutionFailed`, `PullFailed`, `ValidationFailed`, `AuthorizationFailed`, `ContentFailed`, `PreflightFailed`, `Retrying`, `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` |
 | Version | `.status.install.bundle.version` | What version is installed |
 | Rollout | `.status.rollout.type` | What kind of rollout is in progress (Install/Upgrade/Reconfigure). Empty in steady state |
 | Target | `.status.rollout.bundle.version` | What version is being rolled out to. Empty in steady state |
@@ -160,18 +168,20 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 
 `Installed Bundle` (the bundle name) is dropped because it's rarely needed at a glance — the CE name itself identifies the extension, and the version is more actionable. The `Installed` condition column is replaced by `Ready`, which is a more useful signal. The `Progressing` column keeps the standard Kubernetes boolean, and the `Reason` column adds the *why* — together they let users triage without `kubectl describe`. The `Rollout` and `Target` columns provide upgrade visibility.
 
-**Triage at a glance**: `Ready=True + Succeeded` = all good. `Ready=False + RollingOut` = normal upgrade, wait. `Ready=False + Retrying` = issue, controller is working on it. `Ready=False + Blocked/InvalidConfiguration/ProgressDeadlineExceeded` = **needs attention**.
+**Triage at a glance**: `Succeeded` = all good. `RollingOut` = normal upgrade, wait. Any `*Failed` reason = specific retryable problem (check message for detail). `Retrying` = COS-level transient error. `Blocked/InvalidConfiguration/ProgressDeadlineExceeded` = **needs attention, won't self-resolve**.
 
 Example:
 
 ```
 $ kubectl get clusterextensions
-NAME              READY   PROGRESSING   REASON       VERSION   ROLLOUT       TARGET   AGE
-cert-manager      True    False         Succeeded    1.14.0                           30d
-my-operator       False   True          RollingOut   1.0.0     Upgrade       2.0.0    5d
-reconfig-op       False   True          RollingOut   1.0.0     Reconfigure   1.0.0    5d
-fresh-install     False   True          RollingOut   <none>    Install       1.0.0    10s
-broken-operator   False   False         Blocked      <none>    Install       1.0.0    2h
+NAME              READY   PROGRESSING   REASON                VERSION   ROLLOUT       TARGET   AGE
+cert-manager      True    False         Succeeded             1.14.0                           30d
+my-operator       False   True          RollingOut            1.0.0     Upgrade       2.0.0    5d
+reconfig-op       False   True          RollingOut            1.0.0     Reconfigure   1.0.0    5d
+fresh-install     False   True          RollingOut            <none>    Install       1.0.0    10s
+broken-operator   False   False         Blocked               <none>    Install       1.0.0    2h
+pull-fail         False   True          PullFailed            <none>    Install       1.0.0    5m
+no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade       2.0.0    5d
 ```
 
 ### 1.7 Complete CE Condition Summary
@@ -180,7 +190,7 @@ broken-operator   False   False         Blocked      <none>    Install       1.0
 |-----------|------------|-------------|----------------|
 | **Installed** | `Succeeded` — bundle installed | `Failed` — installation error; `Absent` — no installation yet, healthy rollout in progress | `Failed` — cannot determine |
 | **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — no bundle installed (nothing deployed); `ProbeFailure` — specific probe failure on managed resources; `RollingOut` — objects in transition, probes not yet passing | `Pending` — initial state before first reconcile |
-| **Progressing** | `RollingOut` — active rollout; `Retrying` — retrying after error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
+| **Progressing** | `RollingOut` — active rollout, no issues; `ProbeFailure` — rollout active, probes failing; `ResolutionFailed` — bundle not found; `PullFailed` — image pull error; `ValidationFailed` — CE validation error; `AuthorizationFailed` — RBAC insufficient; `ContentFailed` — bundle content unsupported; `PreflightFailed` — preflight check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
 | **Deprecated** | `Deprecated` — any deprecation exists | `NotDeprecated` — no deprecation | `DeprecationStatusUnknown` — catalog data unavailable |
 | **PackageDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
 | **ChannelDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
@@ -715,8 +725,8 @@ The user specifies a package name or version that doesn't exist in any catalog. 
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
-my-operator   False   True          Retrying   <none>                       2m
+NAME          READY   PROGRESSING   REASON             VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          ResolutionFailed   <none>                       2m
 ```
 
 ```yaml
@@ -732,7 +742,7 @@ status:
     message: "No bundle installed"
   - type: Progressing
     status: "True"
-    reason: Retrying
+    reason: ResolutionFailed
     message: "no bundles found for package \"my-operator\" matching version \">=99.0.0\" in channels [stable]"
   install: null
   rollout: null
@@ -750,8 +760,8 @@ The user requests an upgrade to a version that doesn't exist, but the old versio
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    True          Retrying   1.0.0                        5d
+NAME          READY   PROGRESSING   REASON             VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          ResolutionFailed   1.0.0                        5d
 ```
 
 ```yaml
@@ -767,7 +777,7 @@ status:
     message: "All managed resources are healthy"
   - type: Progressing
     status: "True"
-    reason: Retrying
+    reason: ResolutionFailed
     message: "unable to upgrade to version >=99.0.0: no bundles found for package \"my-operator\" matching version \">=99.0.0\" in channels [stable] (currently installed: v1.0.0)"
   install:
     bundle:
@@ -869,8 +879,8 @@ The bundle image cannot be pulled (e.g., registry unreachable, auth failure, ima
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
-my-operator   False   True          Retrying   <none>    Install   1.0.0    5m
+NAME          READY   PROGRESSING   REASON       VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          PullFailed   <none>    Install   1.0.0    5m
 ```
 
 ```yaml
@@ -886,7 +896,7 @@ status:
     message: "No bundle installed"
   - type: Progressing
     status: "True"
-    reason: Retrying
+    reason: PullFailed
     message: "error for resolved bundle my-operator with version 1.0.0: error copying image: authentication required"
   install: null
   rollout:
@@ -945,8 +955,8 @@ The ServiceAccount specified in `spec.serviceAccount.name` does not exist.
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
-my-operator   False   True          Retrying   <none>                       1m
+NAME          READY   PROGRESSING   REASON             VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          ValidationFailed   <none>                       1m
 ```
 
 ```yaml
@@ -962,7 +972,7 @@ status:
     message: "No bundle installed"
   - type: Progressing
     status: "True"
-    reason: Retrying
+    reason: ValidationFailed
     message: "operation cannot proceed due to the following validation error(s): service account \"my-sa\" not found in namespace \"my-ns\""
   install: null
   rollout: null
@@ -978,8 +988,8 @@ The ServiceAccount exists but lacks RBAC permissions for the bundle's managed re
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
+NAME          READY   PROGRESSING   REASON                VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          AuthorizationFailed   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -995,7 +1005,7 @@ status:
     message: "All managed resources are healthy"
   - type: Progressing
     status: "True"
-    reason: Retrying
+    reason: AuthorizationFailed
     message: "error for resolved bundle my-operator with version 2.0.0: creating new Revision: pre-authorization failed: service account requires the following permissions: [create deployments.apps in namespace my-ns, create services in namespace my-ns]"
   install:
     bundle:
@@ -1020,8 +1030,8 @@ The bundle contains unsupported features like APIServiceDefinitions or unsupport
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
+NAME          READY   PROGRESSING   REASON          VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          ContentFailed   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -1037,7 +1047,7 @@ status:
     message: "All managed resources are healthy"
   - type: Progressing
     status: "True"
-    reason: Retrying
+    reason: ContentFailed
     message: "error for resolved bundle my-operator with version 2.0.0: unsupported bundle: apiServiceDefinitions are not supported"
   install:
     bundle:
@@ -1062,8 +1072,8 @@ The COS revision is stuck because a Deployment's pods are not ready (e.g., image
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON       VERSION   ROLLOUT   TARGET   AGE
-my-operator   False   True          RollingOut   1.0.0     Upgrade   2.0.0    5d
+NAME          READY   PROGRESSING   REASON         VERSION   ROLLOUT   TARGET   AGE
+my-operator   False   True          ProbeFailure   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -1080,7 +1090,7 @@ status:
     message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
   - type: Progressing
     status: "True"
-    reason: RollingOut
+    reason: ProbeFailure
     message: "Rolling out bundle my-operator v2.0.0: Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
   install:
     bundle:
@@ -1142,8 +1152,8 @@ A managed object is already owned by another controller. The collision protectio
 
 ```
 $ kubectl get clusterextensions
-NAME          READY     PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
-my-operator   True      True          Retrying   1.0.0     Upgrade   2.0.0    5d
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
@@ -1274,8 +1284,8 @@ A referenced Secret was deleted and recreated with different content after the C
 
 ```
 $ kubectl get clusterextensions
-NAME          READY     PROGRESSING   REASON    VERSION   ROLLOUT   TARGET   AGE
-my-operator   True      False         Blocked   1.0.0     Upgrade   2.0.0    5d
+NAME          READY   PROGRESSING   REASON    VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    False         Blocked   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
@@ -1335,8 +1345,8 @@ Boxcutter preflight validation fails (e.g., dry-run apply rejected by admission 
 
 ```
 $ kubectl get clusterextensions
-NAME          READY     PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
-my-operator   True      True          Retrying   1.0.0     Upgrade   2.0.0    5d
+NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
@@ -1570,8 +1580,8 @@ The upgrade includes CRD changes that fail the safety check (e.g., removing a st
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON     VERSION   ROLLOUT   TARGET   AGE
-my-operator   True    True          Retrying   1.0.0     Upgrade   2.0.0    5d
+NAME          READY   PROGRESSING   REASON            VERSION   ROLLOUT   TARGET   AGE
+my-operator   True    True          PreflightFailed   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```yaml
@@ -1587,7 +1597,7 @@ status:
     message: "All managed resources are healthy"
   - type: Progressing
     status: "True"
-    reason: Retrying
+    reason: PreflightFailed
     message: "error for resolved bundle my-operator with version 2.0.0: CRD upgrade safety check failed: stored version v1alpha1 removed in upgrade"
   install:
     bundle:
@@ -1689,9 +1699,15 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ReasonFailed` | `"Failed"` | Installed=False/Unknown | ✓ | — |
 | `ReasonAbsent` | `"Absent"` | Installed=False, Ready=False | ✓ | — |
 | `ReasonPending` | `"Pending"` | Ready=Unknown | ✓ | — |
-| `ReasonProbeFailure` | `"ProbeFailure"` | Ready=False | ✓ | ✓ |
+| `ReasonProbeFailure` | `"ProbeFailure"` | Ready=False, Progressing=True (COS probes failing during rollout) | ✓ | ✓ |
 | `ReasonRollingOut` | `"RollingOut"` | Progressing=True, Ready=False | ✓ | ✓ |
-| `ReasonRetrying` | `"Retrying"` | Progressing=True | ✓ | ✓ |
+| `ReasonResolutionFailed` | `"ResolutionFailed"` | Progressing=True | ✓ | — |
+| `ReasonPullFailed` | `"PullFailed"` | Progressing=True | ✓ | — |
+| `ReasonValidationFailed` | `"ValidationFailed"` | Progressing=True | ✓ | — |
+| `ReasonAuthorizationFailed` | `"AuthorizationFailed"` | Progressing=True | ✓ | — |
+| `ReasonContentFailed` | `"ContentFailed"` | Progressing=True | ✓ | — |
+| `ReasonPreflightFailed` | `"PreflightFailed"` | Progressing=True | ✓ | — |
+| `ReasonRetrying` | `"Retrying"` | Progressing=True (COS-level transient) | ✓ | ✓ |
 | `ReasonBlocked` | `"Blocked"` | Progressing=False | ✓ | ✓ |
 | `ReasonInvalidConfiguration` | `"InvalidConfiguration"` | Progressing=False | ✓ | — |
 | `ReasonProgressDeadlineExceeded` | `"ProgressDeadlineExceeded"` | Progressing=False | ✓ | ✓ |
@@ -1745,7 +1761,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 |-----------|------|-------|---------|
 | **Installed** | Succeeded | Failed, Absent | Failed |
 | **Ready** | Succeeded | Absent, ProbeFailure, RollingOut | Pending |
-| **Progressing** | RollingOut, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
+| **Progressing** | RollingOut, ProbeFailure, ResolutionFailed, PullFailed, ValidationFailed, AuthorizationFailed, ContentFailed, PreflightFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
 | **Deprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **PackageDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **ChannelDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
@@ -1766,12 +1782,18 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `Failed` | Operation failed | Depends on `Progressing`: if `Progressing=True/Retrying`, the controller is retrying; if `Progressing=False`, manual intervention is needed |
 | `Absent` | Resource does not exist yet (neutral, not an error) | N/A |
 | `Pending` | Waiting for initial state to be established | N/A |
-| `RollingOut` | Active phased rollout in progress | N/A (progressing) |
-| `Retrying` | Transient error, controller will retry | Yes |
+| `RollingOut` | Active phased rollout in progress, no issues | N/A (progressing) |
+| `ProbeFailure` | One or more readiness probes failing (on Ready: health; on Progressing: rollout stuck on probes) | Context-dependent |
+| `ResolutionFailed` | Bundle resolution failed (package/version not found, ambiguous) | Yes |
+| `PullFailed` | Bundle image pull failed (auth, network, missing image) | Yes |
+| `ValidationFailed` | CE validation failed (ServiceAccount not found, etc.) | Yes |
+| `AuthorizationFailed` | RBAC pre-authorization failed (ServiceAccount lacks permissions) | Yes |
+| `ContentFailed` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
+| `PreflightFailed` | Preflight check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
+| `Retrying` | COS-level transient error (collision, validation, etc.) | Yes |
 | `Blocked` | Terminal error requiring manual intervention | No |
 | `InvalidConfiguration` | User configuration error requiring spec change | No |
 | `ProgressDeadlineExceeded` | Rollout exceeded configured time limit | No |
-| `ProbeFailure` | One or more readiness probes failing | Context-dependent |
 | `ProbesSucceeded` | All readiness probes passing | N/A (healthy) |
 | `Reconciling` | Transient error during reconciliation | Yes |
 | `Archived` | Revision has been archived (inactive) | N/A |
@@ -1839,7 +1861,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Update `ensureFailureConditionsWithReason` for new condition set (add Ready)
 - `conditionsets/conditionsets.go`:
   - Add `TypeReady` to `ConditionTypes`
-  - Add `ReasonProbeFailure`, `ReasonPending` to `ConditionReasons`
+  - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonPullFailed`, `ReasonValidationFailed`, `ReasonAuthorizationFailed`, `ReasonContentFailed`, `ReasonPreflightFailed` to `ConditionReasons`
 - Update all tests
 
 ### 5.4 Documentation and Migration
