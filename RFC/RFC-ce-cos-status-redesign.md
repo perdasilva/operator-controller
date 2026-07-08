@@ -165,23 +165,33 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 | Rollout | `.status.rollout.type` | What kind of rollout is in progress (Install/Upgrade/Reconfigure). Empty in steady state |
 | Target | `.status.rollout.bundle.version` | What version is being rolled out to. Empty in steady state |
 | Age | `.metadata.creationTimestamp` | Standard |
+| Message | `.status.conditions[?(@.type=='Progressing')].message` | **Wide only** (priority=1, shown with `-o wide`). The Progressing condition's message — gives the specific error detail inline without requiring `kubectl describe` |
 
-`Installed Bundle` (the bundle name) is dropped because it's rarely needed at a glance — the CE name itself identifies the extension, and the version is more actionable. The `Installed` condition column is replaced by `Ready`, which is a more useful signal. The `Progressing` column keeps the standard Kubernetes boolean, and the `Reason` column adds the *why* — together they let users triage without `kubectl describe`. The `Rollout` and `Target` columns provide upgrade visibility.
+`Installed Bundle` (the bundle name) is dropped because it's rarely needed at a glance — the CE name itself identifies the extension, and the version is more actionable. The `Installed` condition column is replaced by `Ready`, which is a more useful signal. The `Progressing` column keeps the standard Kubernetes boolean, and the `Reason` column adds the *why* — together they let users triage without `kubectl describe`. The `Rollout` and `Target` columns provide upgrade visibility. The `Message` column is hidden by default and shown with `-o wide` — it provides the full error detail for SREs who need it without cluttering the default table.
 
-**Triage at a glance**: `Succeeded` = all good. `RollingOut` = normal upgrade, wait. Any `*Failed` reason = specific retryable problem (check message for detail). `Retrying` = COS-level transient error. `Blocked/InvalidConfiguration/ProgressDeadlineExceeded` = **needs attention, won't self-resolve**.
+**Triage at a glance**: `Succeeded` = all good. `RollingOut` = normal upgrade, wait. Any `*Failed` reason = specific retryable problem (use `-o wide` for detail). `Retrying` = COS-level transient error. `Blocked/InvalidConfiguration/ProgressDeadlineExceeded` = **needs attention, won't self-resolve**.
 
-Example:
+Example (default):
 
 ```
 $ kubectl get clusterextensions
 NAME              READY   PROGRESSING   REASON                VERSION   ROLLOUT       TARGET   AGE
 cert-manager      True    False         Succeeded             1.14.0                           30d
 my-operator       False   True          RollingOut            1.0.0     Upgrade       2.0.0    5d
-reconfig-op       False   True          RollingOut            1.0.0     Reconfigure   1.0.0    5d
-fresh-install     False   True          RollingOut            <none>    Install       1.0.0    10s
 broken-operator   False   False         Blocked               <none>    Install       1.0.0    2h
 pull-fail         False   True          PullFailed            <none>    Install       1.0.0    5m
 no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade       2.0.0    5d
+```
+
+Example (wide — includes MESSAGE):
+
+```
+$ kubectl get clusterextensions -o wide
+NAME              READY   PROGRESSING   REASON                VERSION   ROLLOUT   TARGET   AGE   MESSAGE
+cert-manager      True    False         Succeeded             1.14.0                       30d   Desired state reached
+broken-operator   False   False         Blocked               <none>    Install   1.0.0    2h    error parsing image reference "!!!invalid": invalid reference format
+pull-fail         False   True          PullFailed            <none>    Install   1.0.0    5m    error copying image: authentication required
+no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade   2.0.0    5d    pre-authorization failed: service account requires permissions: [create deployments.apps]
 ```
 
 ### 1.7 Complete CE Condition Summary
@@ -354,7 +364,7 @@ const (
 
 **Current**: `Available`, `Progressing`, `Age`
 
-**Proposed**: `Revision`, `Ready`, `Progressing`, `Reason`, `Age`
+**Proposed**: `Revision`, `Ready`, `Progressing`, `Reason`, `Age` (+ `Message` with `-o wide`)
 
 | Column | JSONPath | Rationale |
 |--------|---------|-----------|
@@ -363,6 +373,7 @@ const (
 | Progressing | `.status.conditions[?(@.type=='Progressing')].status` | Is active work happening |
 | Reason | `.status.conditions[?(@.type=='Progressing')].reason` | Why — `Archived` in the reason column replaces the need for a separate Lifecycle column. Matches the CE pattern for consistent triage |
 | Age | `.metadata.creationTimestamp` | Standard |
+| Message | `.status.conditions[?(@.type=='Progressing')].message` | **Wide only** (priority=1, shown with `-o wide`). Specific error detail for debugging |
 
 The `Lifecycle` column is dropped because the `Reason` column already shows `Archived` for archived revisions — any other reason implies Active.
 
@@ -1843,7 +1854,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Add `SucceededAt *metav1.Time` field to `ClusterObjectSetStatus`
   - Add `Phases []PhaseStatus` field to `ClusterObjectSetStatus`
   - Add `PhaseStatus` and `PhaseStatusState` types
-  - Update print columns to add Revision and Reason; rename Available→Ready; drop Lifecycle (redundant with Reason=Archived)
+  - Update print columns to add Revision, Reason, and Message[wide]; rename Available→Ready; drop Lifecycle (redundant with Reason=Archived)
   - Remove `"Migrated"` from API doc comments (never implemented)
 - `clusterobjectset_controller.go`:
   - Set `SucceededAt` timestamp instead of `Succeeded` condition
@@ -1860,7 +1871,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Add `ClusterExtensionRolloutStatus` type and `RolloutType` enum
   - Add `Rollout` field to `ClusterExtensionStatus`
   - Remove `ActiveRevisions` field and `RevisionStatus` type
-  - Update print columns (Ready, Progressing, Reason, Version, Rollout, Target, Age)
+  - Update print columns (Ready, Progressing, Reason, Version, Rollout, Target, Age, Message[wide])
 - `common_controller.go`:
   - Add `setReadyCondition()` helper functions
   - Update `setInstalledStatusFromRevisionStates()` to also set Ready
