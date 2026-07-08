@@ -15,7 +15,7 @@ Users of OLM v1 must currently inspect ClusterObjectSet (COS) resources — an i
 
 1. **Confusing condition semantics**: `Progressing=True, Reason=Succeeded` means "finished progressing," which contradicts the natural reading of `Progressing=True` as "active work is happening." This violates the [Kubernetes API conventions for conditions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties).
 
-2. **Mirrored COS conditions on CE**: The CE controller mirrors COS `Available` and `Progressing` conditions directly onto the CE, mixing COS-specific reasons (like `ProbesSucceeded`, `RollingOut`) with CE-native reasons. This couples CE's API surface to COS internals.
+2. **Mirrored COS conditions on CE**: The CE controller mirrors COS `Available` and `Progressing` conditions directly onto the CE, mixing COS-specific reasons (like `ProbesSucceeded`, `Deploying`) with CE-native reasons. This couples CE's API surface to COS internals.
 
 3. **No health signal**: The CE has no dedicated "is my extension healthy right now?" condition. `Installed=True` means "a bundle was installed," not "the managed resources are currently healthy."
 
@@ -40,19 +40,19 @@ This RFC proposes changes across both the CE and COS APIs to make the CE self-su
 **Current (broken)**:
 - `Progressing=True, Reason=Succeeded` → "finished progressing"
 - `Progressing=True, Reason=Retrying` → "retrying after error"
-- `Progressing=True, Reason=RollingOut` → "active rollout"
+- `Progressing=True, Reason=Deploying` → "active rollout"
 - `Progressing=False, Reason=Blocked` → "terminal error"
 
 **Proposed (fixed)**:
 - `Progressing=False, Reason=Succeeded` → "finished, not progressing anymore"
-- `Progressing=True, Reason=RollingOut` → "active rollout, no issues" (unchanged)
+- `Progressing=True, Reason=Deploying` → "active rollout, no issues" (unchanged)
 - `Progressing=True, Reason=ProbeFailure` → "rollout in progress but probes failing"
 - `Progressing=True, Reason=ResolutionFailed` → "bundle resolution failed, retrying"
 - `Progressing=True, Reason=ImagePullFailed` → "image pull failed, retrying"
 - `Progressing=True, Reason=ValidationFailed` → "CE validation failed (e.g., ServiceAccount not found), retrying"
 - `Progressing=True, Reason=AuthorizationFailed` → "RBAC insufficient, retrying"
 - `Progressing=True, Reason=UnsupportedContent` → "bundle content unsupported, retrying"
-- `Progressing=True, Reason=PreflightFailed` → "CRD safety or other preflight check failed, retrying"
+- `Progressing=True, Reason=SafetyCheckFailed` → "CRD safety or other preflight check failed, retrying"
 - `Progressing=True, Reason=Retrying` → "COS-level transient error, retrying"
 - `Progressing=False, Reason=Blocked` → "terminal error" (unchanged)
 - `Progressing=False, Reason=InvalidConfiguration` → "invalid configuration, requires manual fix"
@@ -69,14 +69,14 @@ A new `Ready` condition provides a dedicated health signal for the extension's m
 | True | `Succeeded` | Resources healthy, all probes pass |
 | False | `Absent` | No bundle installed yet (nothing deployed to be healthy) |
 | False | `ProbeFailure` | Specific probe failure on managed resources |
-| False | `RollingOut` | Rollout in progress, objects in transition — probes not yet passing |
+| False | `Deploying` | Rollout in progress, objects in transition — probes not yet passing |
 | Unknown | `Pending` | Initial state before first reconcile |
 
 **How Ready is derived**:
 
 Ready answers ONE question: **"are the managed resources currently healthy?"** It does not carry pipeline error detail (resolution failures, config errors, pull errors) — that is `Progressing`'s job. This follows the Kubernetes Deployment pattern where `Available` and `Progressing` are orthogonal signals that don't duplicate each other's information.
 
-- **When a COS revision is rolling out** (latest active COS without `succeededAt`): `Ready` reflects that COS's probe state. If it's still rolling out and probes haven't been evaluated, `Ready=False/RollingOut`. If probes are failing, `Ready=False/ProbeFailure`. This means **Ready drops during normal upgrades** — it tracks the actual on-cluster state, not a cached view from the old revision.
+- **When a COS revision is rolling out** (latest active COS without `succeededAt`): `Ready` reflects that COS's probe state. If it's still rolling out and probes haven't been evaluated, `Ready=False/Deploying`. If probes are failing, `Ready=False/ProbeFailure`. This means **Ready drops during normal upgrades** — it tracks the actual on-cluster state, not a cached view from the old revision.
 - **When only the installed revision exists** (no rollout in progress): `Ready` reflects the installed COS's probe state. If probes pass, `Ready=True/Succeeded`. If probes fail, `Ready=False/ProbeFailure`.
 - **When a pre-COS error occurs** (resolution failure, pull failure, validation error — no new COS is created): If an installed revision exists, `Ready` stays based on that installed revision's probe state (the error didn't create a new COS, so the on-cluster state hasn't changed). If no installed revision exists, `Ready=False/Absent` — there's simply nothing deployed. The specific error goes in `Progressing`, not `Ready`.
 - **When nothing is installed and no error has occurred yet**: `Ready=Unknown/Pending` (brief initial state before first reconcile).
@@ -87,7 +87,7 @@ Ready answers ONE question: **"are the managed resources currently healthy?"** I
 - `Installed` → "Has a bundle been successfully installed?" (static fact, based on whether any COS has completed rollout)
 - `Ready` → "Are the managed resources currently healthy right now?" (dynamic health check, tracks the latest active COS's probe state)
 
-You can have `Installed=True, Ready=False/RollingOut` during a normal upgrade — the old version was installed but objects are being replaced, and the new revision hasn't completed. Once the upgrade finishes, Ready returns to True.
+You can have `Installed=True, Ready=False/Deploying` during a normal upgrade — the old version was installed but objects are being replaced, and the new revision hasn't completed. Once the upgrade finishes, Ready returns to True.
 
 ### 1.3 Add Operation Status Field
 
@@ -135,15 +135,15 @@ This field is removed. Users who need revision-level detail can inspect COS reso
 
 ### 1.5 Stop Mirroring COS Conditions — Translate Instead
 
-The CE controller currently mirrors COS `Available` and `Progressing` conditions directly onto the CE, including COS-specific reasons like `ProbesSucceeded` and `RollingOut`.
+The CE controller currently mirrors COS `Available` and `Progressing` conditions directly onto the CE, including COS-specific reasons like `ProbesSucceeded` and `Deploying`.
 
 **Proposed**: The CE controller reads COS state but translates it into CE-native conditions (`Ready`, `Progressing`, `Installed`) with CE-native reasons. No COS conditions appear on the CE.
 
-**Critical: CE must surface COS blocking errors.** When the latest rolling-out COS has a terminal error (`Progressing=False/Blocked`, `Progressing=False/ProgressDeadlineExceeded`), the CE controller must detect this and reflect it in the CE's `Progressing` condition. Without this, the CE would show `Progressing=True/RollingOut` while the COS is terminally stuck — leaving the user unable to diagnose the problem from the CE alone.
+**Critical: CE must surface COS blocking errors.** When the latest rolling-out COS has a terminal error (`Progressing=False/Blocked`, `Progressing=False/ProgressDeadlineExceeded`), the CE controller must detect this and reflect it in the CE's `Progressing` condition. Without this, the CE would show `Progressing=True/Deploying` while the COS is terminally stuck — leaving the user unable to diagnose the problem from the CE alone.
 
 Translation rules for the CE `Progressing` condition from COS state:
 - COS `Progressing=True/RollingOut` AND COS `Ready=False/ProbeFailure` → CE `Progressing=True/ProbeFailure` with the probe failure detail. This distinguishes a stuck rollout from a healthy one.
-- COS `Progressing=True/RollingOut` AND COS `Ready=False/RollingOut` → CE `Progressing=True/RollingOut` (normal progress, no issues).
+- COS `Progressing=True/RollingOut` AND COS `Ready=False/RollingOut` → CE `Progressing=True/Deploying` (normal progress, no issues).
 - COS `Progressing=True/Retrying` → CE `Progressing=True/Retrying` with the COS error message (collisions, validation errors, etc.)
 - COS `Progressing=False/Blocked` → CE `Progressing=False/Blocked` with the COS error message
 - COS `Progressing=False/ProgressDeadlineExceeded` → CE `Progressing=False/ProgressDeadlineExceeded` with the COS message
@@ -160,7 +160,7 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 |--------|---------|-----------|
 | Ready | `.status.conditions[?(@.type=='Ready')].status` | Primary health signal — the first thing users check |
 | Progressing | `.status.conditions[?(@.type=='Progressing')].status` | Is something actively happening? Standard Kubernetes boolean |
-| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason. Each reason identifies a specific error category: `Succeeded`, `RollingOut`, `ProbeFailure`, `ResolutionFailed`, `ImagePullFailed`, `ValidationFailed`, `AuthorizationFailed`, `UnsupportedContent`, `PreflightFailed`, `Retrying`, `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` |
+| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason. Each reason identifies a specific error category: `Succeeded`, `Deploying`, `ProbeFailure`, `ResolutionFailed`, `ImagePullFailed`, `ValidationFailed`, `AuthorizationFailed`, `UnsupportedContent`, `SafetyCheckFailed`, `Retrying`, `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` |
 | Version | `.status.install.bundle.version` | What version is installed |
 | Operation | `.status.operation.type` | What kind of rollout is in progress (Install/Upgrade/Reconfigure). Empty in steady state |
 | Target | `.status.operation.bundle.version` | What version is being rolled out to. Empty in steady state |
@@ -169,7 +169,7 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 
 `Installed Bundle` (the bundle name) is dropped because it's rarely needed at a glance — the CE name itself identifies the extension, and the version is more actionable. The `Installed` condition column is replaced by `Ready`, which is a more useful signal. The `Progressing` column keeps the standard Kubernetes boolean, and the `Reason` column adds the *why* — together they let users triage without `kubectl describe`. The `Operation` and `Target` columns provide upgrade visibility. The `Message` column is hidden by default and shown with `-o wide` — it provides the full error detail for SREs who need it without cluttering the default table.
 
-**Triage at a glance**: `Succeeded` = all good. `RollingOut` = normal upgrade, wait. Any `*Failed` reason = specific retryable problem (use `-o wide` for detail). `Retrying` = COS-level transient error. `Blocked/InvalidConfiguration/ProgressDeadlineExceeded` = **needs attention, won't self-resolve**.
+**Triage at a glance**: `Succeeded` = all good. `Deploying` = normal upgrade, wait. Any `*Failed` reason = specific retryable problem (use `-o wide` for detail). `Retrying` = COS-level transient error. `Blocked/InvalidConfiguration/ProgressDeadlineExceeded` = **needs attention, won't self-resolve**.
 
 Example (default):
 
@@ -177,7 +177,7 @@ Example (default):
 $ kubectl get clusterextensions
 NAME              READY   PROGRESSING   REASON                VERSION   OPERATION   TARGET   AGE
 cert-manager      True    False         Succeeded             1.14.0                         30d
-my-operator       False   True          RollingOut            1.0.0     Upgrade     2.0.0    5d
+my-operator       False   True          Deploying            1.0.0     Upgrade     2.0.0    5d
 broken-operator   False   False         Blocked               <none>    Install     1.0.0    2h
 pull-fail         False   True          ImagePullFailed       <none>    Install     1.0.0    5m
 no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade     2.0.0    5d
@@ -199,8 +199,8 @@ no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade 
 | Condition | Status=True | Status=False | Status=Unknown |
 |-----------|------------|-------------|----------------|
 | **Installed** | `Succeeded` — a bundle is installed | `Absent` — no bundle installed | — |
-| **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — no bundle installed (nothing deployed); `ProbeFailure` — specific probe failure on managed resources; `RollingOut` — objects in transition, probes not yet passing | `Pending` — initial state before first reconcile |
-| **Progressing** | `RollingOut` — active rollout, no issues; `ProbeFailure` — rollout active, probes failing; `ResolutionFailed` — bundle not found; `ImagePullFailed` — image pull error; `ValidationFailed` — CE validation error; `AuthorizationFailed` — RBAC insufficient; `UnsupportedContent` — bundle content unsupported; `PreflightFailed` — preflight check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
+| **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — no bundle installed (nothing deployed); `ProbeFailure` — specific probe failure on managed resources; `Deploying` — objects in transition, probes not yet passing | `Pending` — initial state before first reconcile |
+| **Progressing** | `Deploying` — active deployment, no issues; `ProbeFailure` — deployment active, probes failing; `ResolutionFailed` — bundle not found; `ImagePullFailed` — image pull error; `ValidationFailed` — CE validation error; `AuthorizationFailed` — RBAC insufficient; `UnsupportedContent` — bundle content unsupported; `SafetyCheckFailed` — safety check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
 | **Deprecated** | `Deprecated` — any deprecation exists | `NotDeprecated` — no deprecation | `DeprecationStatusUnknown` — catalog data unavailable |
 | **PackageDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
 | **ChannelDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
@@ -498,7 +498,7 @@ A new ClusterExtension is being installed for the first time. The COS is rolling
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
-my-operator   False   True          RollingOut   <none>    Install     1.0.0    30s
+my-operator   False   True          Deploying   <none>    Install     1.0.0    30s
 ```
 
 ```yaml
@@ -518,7 +518,7 @@ status:
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
-    reason: RollingOut
+    reason: Deploying
     message: "Rolling out bundle my-operator v1.0.0"
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
@@ -533,7 +533,7 @@ status:
 ```
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   REASON       AGE
-my-operator-1   1          False   True          RollingOut   30s
+my-operator-1   1          False   True          Deploying   30s
 ```
 
 ```yaml
@@ -577,7 +577,7 @@ The user changed the version constraint. A new COS revision is rolling out while
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
-my-operator   False   True          RollingOut   1.0.0     Upgrade     2.0.0    5d
+my-operator   False   True          Deploying   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```yaml
@@ -591,13 +591,13 @@ status:
     lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "False"
-    reason: RollingOut
+    reason: Deploying
     message: "Managed resources are being updated"
     observedGeneration: 2
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
-    reason: RollingOut
+    reason: Deploying
     message: "Rolling out bundle my-operator v2.0.0"
     observedGeneration: 2
     lastTransitionTime: "2026-07-07T10:00:00Z"
@@ -616,7 +616,7 @@ status:
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   REASON       AGE
 my-operator-1   1          True    False         Succeeded    5d
-my-operator-2   2          False   True          RollingOut   30s
+my-operator-2   2          False   True          Deploying   30s
 ```
 
 **Key UX point**: `Ready=False` — the new revision's objects are still rolling out, so the on-cluster state is in transition. `Installed=True` confirms the previous version was installed. `Version=1.0.0` shows what was installed, `Operation=Upgrade` and `Target=2.0.0` show where it's headed. The COS table shows two active revisions. Once COS-2 completes, Ready returns to True.
@@ -633,7 +633,7 @@ This shows the detailed phase-level state during the same upgrade from 3.3, view
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   REASON       AGE
 my-operator-1   1          True    False         Succeeded    5d
-my-operator-2   2          False   True          RollingOut   2m
+my-operator-2   2          False   True          Deploying   2m
 ```
 
 ```yaml
@@ -724,7 +724,7 @@ The user changed configuration (e.g., service account, inline config) without ch
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON       VERSION   OPERATION     TARGET   AGE
-my-operator   False   True          RollingOut   1.0.0     Reconfigure   1.0.0    5d
+my-operator   False   True          Deploying   1.0.0     Reconfigure   1.0.0    5d
 ```
 
 ```yaml
@@ -738,13 +738,13 @@ status:
     lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "False"
-    reason: RollingOut
+    reason: Deploying
     message: "Managed resources are being updated"
     observedGeneration: 2
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
-    reason: RollingOut
+    reason: Deploying
     message: "Rolling out configuration change for bundle my-operator v1.0.0"
     observedGeneration: 2
     lastTransitionTime: "2026-07-07T10:00:00Z"
@@ -1268,7 +1268,7 @@ status:
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   REASON       AGE
 my-operator-1   1          True    False         Succeeded    5d
-my-operator-2   2          False   True          RollingOut   5m
+my-operator-2   2          False   True          Deploying   5m
 ```
 
 ```yaml
@@ -1865,13 +1865,13 @@ The upgrade includes CRD changes that fail the safety check (e.g., removing a st
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON            VERSION   OPERATION   TARGET   AGE
-my-operator   True    True          PreflightFailed   1.0.0     Upgrade     2.0.0    5d
+my-operator   True    True          SafetyCheckFailed   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON            VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          PreflightFailed   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: CRD upgra...   5d
+my-operator   True    True          SafetyCheckFailed   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: CRD upgra...   5d
 
 ```yaml
 status:
@@ -1890,7 +1890,7 @@ status:
     lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "True"
-    reason: PreflightFailed
+    reason: SafetyCheckFailed
     message: "error for resolved bundle my-operator with version 2.0.0: CRD upgrade safety check failed: stored version v1alpha1 removed in upgrade"
     observedGeneration: 2
     lastTransitionTime: "2026-07-07T10:00:00Z"
@@ -1968,7 +1968,7 @@ The print columns work well for managing multiple extensions at scale:
 $ kubectl get clusterextensions
 NAME              READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
 cert-manager      True    False         Succeeded    1.14.0                         30d
-my-operator       False   True          RollingOut   1.0.0     Upgrade     2.0.0    5d
+my-operator       False   True          Deploying   1.0.0     Upgrade     2.0.0    5d
 broken-operator   False   False         Blocked      <none>    Install     1.0.0    2h
 deprecated-op     True    False         Succeeded    3.2.1                          90d
 ```
@@ -2005,13 +2005,14 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ReasonAbsent` | `"Absent"` | Installed=False, Ready=False | ✓ | — |
 | `ReasonPending` | `"Pending"` | Ready=Unknown | ✓ | — |
 | `ReasonProbeFailure` | `"ProbeFailure"` | Ready=False, Progressing=True (COS probes failing during rollout) | ✓ | ✓ |
-| `ReasonRollingOut` | `"RollingOut"` | Progressing=True, Ready=False | ✓ | ✓ |
+| `ReasonDeploying` | `"Deploying"` | CE: Progressing=True, Ready=False | ✓ | — |
+| `ReasonRollingOut` | `"RollingOut"` | COS: Progressing=True, Ready=False | — | ✓ |
 | `ReasonResolutionFailed` | `"ResolutionFailed"` | Progressing=True | ✓ | — |
 | `ReasonImagePullFailed` | `"ImagePullFailed"` | Progressing=True | ✓ | — |
 | `ReasonValidationFailed` | `"ValidationFailed"` | Progressing=True | ✓ | ✓ |
 | `ReasonAuthorizationFailed` | `"AuthorizationFailed"` | Progressing=True | ✓ | — |
 | `ReasonUnsupportedContent` | `"UnsupportedContent"` | Progressing=True | ✓ | — |
-| `ReasonPreflightFailed` | `"PreflightFailed"` | Progressing=True | ✓ | — |
+| `ReasonSafetyCheckFailed` | `"SafetyCheckFailed"` | Progressing=True | ✓ | — |
 | `ReasonRetrying` | `"Retrying"` | Progressing=True (COS-level transient) | ✓ | ✓ |
 | `ReasonBlocked` | `"Blocked"` | Progressing=False | ✓ | ✓ |
 | `ReasonInvalidConfiguration` | `"InvalidConfiguration"` | Progressing=False | ✓ | — |
@@ -2066,8 +2067,8 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | Condition | True | False | Unknown |
 |-----------|------|-------|---------|
 | **Installed** | Succeeded | Absent | — |
-| **Ready** | Succeeded | Absent, ProbeFailure, RollingOut | Pending |
-| **Progressing** | RollingOut, ProbeFailure, ResolutionFailed, ImagePullFailed, ValidationFailed, AuthorizationFailed, UnsupportedContent, PreflightFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
+| **Ready** | Succeeded | Absent, ProbeFailure, Deploying | Pending |
+| **Progressing** | Deploying, ProbeFailure, ResolutionFailed, ImagePullFailed, ValidationFailed, AuthorizationFailed, UnsupportedContent, SafetyCheckFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
 | **Deprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **PackageDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **ChannelDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
@@ -2087,14 +2088,15 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `Succeeded` | Operation completed successfully | N/A (terminal success) |
 | `Absent` | Resource does not exist yet (neutral, not an error) | N/A |
 | `Pending` | Waiting for initial state to be established | N/A |
-| `RollingOut` | Active phased rollout in progress, no issues | N/A (progressing) |
+| `Deploying` | CE: active deployment in progress, no issues | N/A (progressing) |
+| `RollingOut` | COS: active phased rollout in progress | N/A (progressing) |
 | `ProbeFailure` | One or more readiness probes failing (on Ready: health; on Progressing: rollout stuck on probes) | Context-dependent |
 | `ResolutionFailed` | Bundle resolution failed (package/version not found, ambiguous) | Yes |
 | `ImagePullFailed` | Bundle image pull failed (auth, network, missing image) | Yes |
 | `ValidationFailed` | CE validation failed (ServiceAccount not found, etc.) | Yes |
 | `AuthorizationFailed` | RBAC pre-authorization failed (ServiceAccount lacks permissions) | Yes |
 | `UnsupportedContent` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
-| `PreflightFailed` | Preflight check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
+| `SafetyCheckFailed` | Preflight check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
 | `ObjectCollisionDetected` | Object ownership conflict — another controller owns the resource | Yes |
 | `ValidationFailed` | Preflight or dry-run validation failed (on CE: SA not found, etc.; on COS: admission webhook, etc.) | Yes |
 | `Retrying` | COS-level transient error (secret resolution, watch setup, engine error) | Yes |
@@ -2169,7 +2171,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Update `ensureFailureConditionsWithReason` for new condition set (add Ready)
 - `conditionsets/conditionsets.go`:
   - Add `TypeReady` to `ConditionTypes`
-  - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonImagePullFailed`, `ReasonValidationFailed`, `ReasonAuthorizationFailed`, `ReasonUnsupportedContent`, `ReasonPreflightFailed` to `ConditionReasons`
+  - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonImagePullFailed`, `ReasonValidationFailed`, `ReasonAuthorizationFailed`, `ReasonUnsupportedContent`, `ReasonSafetyCheckFailed` to `ConditionReasons`
 - Update all tests
 
 ### 5.4 Documentation and Migration
@@ -2193,7 +2195,7 @@ Events on the ClusterExtension provide a time-series trail visible via `kubectl 
 | Rollout started | Normal | RolloutStarted | `"Starting upgrade to bundle my-operator v2.0.0"` |
 | Rollout completed | Normal | RolloutCompleted | `"Successfully rolled out bundle my-operator v2.0.0"` |
 | Rollout failed (terminal) | Warning | RolloutFailed | `"Rollout blocked: invalid ClusterExtension configuration: unknown field \"invalidKey\""` |
-| Progressing reason changed | Warning | ProgressingReasonChanged | `"Progressing reason changed from RollingOut to ProbeFailure: Deployment my-ns/my-deploy not ready"` |
+| Progressing reason changed | Warning | ProgressingReasonChanged | `"Progressing reason changed from Deploying to ProbeFailure: Deployment my-ns/my-deploy not ready"` |
 | Resolution failed | Warning | ResolutionFailed | `"No bundles found for package \"my-operator\" matching version \">=99.0.0\" in channels [stable]"` |
 | Image pull failed | Warning | ImagePullFailed | `"Error copying image: authentication required"` |
 | Authorization failed | Warning | AuthorizationFailed | `"Pre-authorization failed: service account requires permissions: [create deployments.apps]"` |
@@ -2283,7 +2285,7 @@ Add per-phase status fields on CE as well as COS, making CE completely self-suff
 
 2. **Rollout field lifecycle**: ✅ Resolved. `status.operation` persists whenever a rollout has been attempted, including failed/blocked rollouts. It is cleared only on `Progressing=False/Succeeded`. This ensures the user can always see what they were trying to roll out to, even if it failed.
 
-3. **Ready condition during upgrades**: ✅ Resolved. Ready tracks the latest active COS's probe state to reflect the actual on-cluster state. During an upgrade, Ready drops to `False/RollingOut` because objects are in transition between revisions. When a pre-COS error occurs and no new COS is created, Ready stays based on the installed revision (the on-cluster state hasn't changed). Ready does not carry pipeline error detail — that is Progressing's job. This follows the Kubernetes Deployment pattern where Available and Progressing are orthogonal. The pattern `Ready=False, Progressing=True` is normal during upgrades; the red flag is `Ready=False, Progressing=False` (stuck).
+3. **Ready condition during upgrades**: ✅ Resolved. Ready tracks the latest active COS's probe state to reflect the actual on-cluster state. During an upgrade, Ready drops to `False/Deploying` because objects are in transition between revisions. When a pre-COS error occurs and no new COS is created, Ready stays based on the installed revision (the on-cluster state hasn't changed). Ready does not carry pipeline error detail — that is Progressing's job. This follows the Kubernetes Deployment pattern where Available and Progressing are orthogonal. The pattern `Ready=False, Progressing=True` is normal during upgrades; the red flag is `Ready=False, Progressing=False` (stuck).
 
 4. **Phase status for migrated revisions**: ✅ Resolved. Migrated COS revisions (from `BoxcutterStorageMigrator`) did not go through the phased rollout process. Their `status.phases` will be empty, and they will have `succeededAt` set. This is acceptable because migrated revisions represent pre-existing workloads that were already running.
 
