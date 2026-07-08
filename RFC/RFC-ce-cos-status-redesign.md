@@ -1874,6 +1874,61 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
 - Add upgrade/migration notes for consumers of the old condition set
 - Update any tooling or scripts that depend on the old condition types
 
+## Part 6: Recommended Events
+
+Conditions capture the current state; events capture the history of what happened and when. Together they give operators a complete picture. This section recommends which state transitions should emit Kubernetes Events.
+
+### 6.1 CE Events
+
+Events on the ClusterExtension provide a time-series trail visible via `kubectl describe clusterextension <name>` or `kubectl get events`.
+
+**Recommended event triggers:**
+
+| Transition | Type | Reason | Example Message |
+|------------|------|--------|-----------------|
+| Rollout started | Normal | RolloutStarted | `"Starting upgrade to bundle my-operator v2.0.0"` |
+| Rollout completed | Normal | RolloutCompleted | `"Successfully rolled out bundle my-operator v2.0.0"` |
+| Rollout failed (terminal) | Warning | RolloutFailed | `"Rollout blocked: invalid ClusterExtension configuration: unknown field \"invalidKey\""` |
+| Progressing reason changed | Warning | ProgressingReasonChanged | `"Progressing reason changed from RollingOut to ProbeFailure: Deployment my-ns/my-deploy not ready"` |
+| Resolution failed | Warning | ResolutionFailed | `"No bundles found for package \"my-operator\" matching version \">=99.0.0\" in channels [stable]"` |
+| Image pull failed | Warning | PullFailed | `"Error copying image: authentication required"` |
+| Authorization failed | Warning | AuthorizationFailed | `"Pre-authorization failed: service account requires permissions: [create deployments.apps]"` |
+| Progress deadline exceeded | Warning | ProgressDeadlineExceeded | `"Revision has not rolled out for 30 minute(s)"` |
+
+**Guidance:**
+- Use `Normal` type for expected lifecycle transitions (start, complete)
+- Use `Warning` type for errors and unexpected state changes
+- Include the specific error in the message — events are often the first thing SREs check after an alert
+- Event reasons should match the Progressing condition reasons for consistency
+
+### 6.2 COS Events
+
+Events on the ClusterObjectSet provide phase-level debugging context.
+
+**Recommended event triggers:**
+
+| Transition | Type | Reason | Example Message |
+|------------|------|--------|-----------------|
+| Phase completed | Normal | PhaseComplete | `"Phase \"crds\" complete (2/5 phases done)"` |
+| Phase failed (probe) | Warning | ProbeFailure | `"Phase \"deploy\" probe failure: Deployment my-ns/my-deploy: updatedReplicas (0) != replicas (3)"` |
+| Object collision | Warning | CollisionDetected | `"Object collision in phase \"roles\": Deployment my-ns/deploy owned by ClusterObjectSet/other-ext-1"` |
+| Revision blocked | Warning | Blocked | `"Revision blocked: referenced secrets are not immutable"` |
+| Revision archived | Normal | Archived | `"Revision archived — superseded by revision 3"` |
+| Revision succeeded | Normal | Succeeded | `"Revision 2 rolled out successfully"` |
+| Progress deadline exceeded | Warning | ProgressDeadlineExceeded | `"Revision has not rolled out for 30 minute(s)"` |
+
+**Guidance:**
+- Phase completion events give SREs a timeline of rollout progress without having to watch the resource
+- Error events on the COS should include enough context for diagnosis — the SRE may be looking at events across many resources via `kubectl get events --field-selector involvedObject.kind=ClusterObjectSet`
+- Keep events concise — the condition message carries the full detail
+
+### 6.3 Implementation Notes
+
+- Event emission is an implementation concern — the exact event types and message formats are not part of the API contract
+- Events should be emitted on **transitions**, not on every reconcile (avoid flooding the event stream)
+- Consider deduplication — repeated probe failures should not emit a new event every 10 seconds; one event with an incrementing count is sufficient
+- Events are retained by the Kubernetes event TTL (default 1 hour) — they complement but do not replace conditions for persistent state
+
 # **Benefit**
 
 1. **Self-sufficient CE**: Users can understand extension health, installation status, and rollout progress entirely from the CE, without inspecting COS resources. The `Ready` condition provides a clear health signal, and `status.rollout` shows upgrade context.
