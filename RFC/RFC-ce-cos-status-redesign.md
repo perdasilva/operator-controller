@@ -531,7 +531,7 @@ status:
   - type: Ready
     status: "False"
     reason: RollingOut
-    message: "Revision 1.0.0 is rolling out."
+    message: "Managed resources are being updated"
   - type: Progressing
     status: "True"
     reason: RollingOut
@@ -574,7 +574,7 @@ status:
   - type: Ready
     status: "False"
     reason: RollingOut
-    message: "Revision 2.0.0 is rolling out."
+    message: "Managed resources are being updated"
   - type: Progressing
     status: "True"
     reason: RollingOut
@@ -621,7 +621,7 @@ status:
   - type: Ready
     status: "False"
     reason: RollingOut
-    message: "Revision 2.0.0 is rolling out."
+    message: "Managed resources are being updated"
   - type: Progressing
     status: "True"
     reason: RollingOut
@@ -707,7 +707,7 @@ status:
   - type: Ready
     status: "False"
     reason: RollingOut
-    message: "Revision 1.0.0 is rolling out."
+    message: "Managed resources are being updated"
   - type: Progressing
     status: "True"
     reason: RollingOut
