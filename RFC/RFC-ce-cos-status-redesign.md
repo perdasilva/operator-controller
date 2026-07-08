@@ -164,8 +164,8 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 | Version | `.status.install.bundle.version` | What version is installed |
 | Rollout | `.status.rollout.type` | What kind of rollout is in progress (Install/Upgrade/Reconfigure). Empty in steady state |
 | Target | `.status.rollout.bundle.version` | What version is being rolled out to. Empty in steady state |
-| Age | `.metadata.creationTimestamp` | Standard |
 | Message | `.status.conditions[?(@.type=='Progressing')].message` | **Wide only** (priority=1, shown with `-o wide`). The Progressing condition's message — gives the specific error detail inline without requiring `kubectl describe` |
+| Age | `.metadata.creationTimestamp` | Standard — always last per kubectl convention |
 
 `Installed Bundle` (the bundle name) is dropped because it's rarely needed at a glance — the CE name itself identifies the extension, and the version is more actionable. The `Installed` condition column is replaced by `Ready`, which is a more useful signal. The `Progressing` column keeps the standard Kubernetes boolean, and the `Reason` column adds the *why* — together they let users triage without `kubectl describe`. The `Rollout` and `Target` columns provide upgrade visibility. The `Message` column is hidden by default and shown with `-o wide` — it provides the full error detail for SREs who need it without cluttering the default table.
 
@@ -187,11 +187,11 @@ Example (wide — includes MESSAGE):
 
 ```
 $ kubectl get clusterextensions -o wide
-NAME              READY   PROGRESSING   REASON                VERSION   ROLLOUT   TARGET   AGE   MESSAGE
-cert-manager      True    False         Succeeded             1.14.0                       30d   Desired state reached
-broken-operator   False   False         Blocked               <none>    Install   1.0.0    2h    error parsing image reference "!!!invalid": invalid reference format
-pull-fail         False   True          PullFailed            <none>    Install   1.0.0    5m    error copying image: authentication required
-no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade   2.0.0    5d    pre-authorization failed: service account requires permissions: [create deployments.apps]
+NAME              READY   PROGRESSING   REASON                VERSION   ROLLOUT   TARGET   MESSAGE                                                                            AGE
+cert-manager      True    False         Succeeded             1.14.0                       Desired state reached                                                                30d
+broken-operator   False   False         Blocked               <none>    Install   1.0.0    error parsing image reference "!!!invalid": invalid reference format                2h
+pull-fail         False   True          PullFailed            <none>    Install   1.0.0    error copying image: authentication required                                       5m
+no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade   2.0.0    pre-authorization failed: SA requires permissions: [create deployments.apps]        5d
 ```
 
 ### 1.7 Complete CE Condition Summary
@@ -372,8 +372,8 @@ const (
 | Ready | `.status.conditions[?(@.type=='Ready')].status` | Health signal (renamed from Available) |
 | Progressing | `.status.conditions[?(@.type=='Progressing')].status` | Is active work happening |
 | Reason | `.status.conditions[?(@.type=='Progressing')].reason` | Why — `Archived` in the reason column replaces the need for a separate Lifecycle column. Matches the CE pattern for consistent triage |
-| Age | `.metadata.creationTimestamp` | Standard |
 | Message | `.status.conditions[?(@.type=='Progressing')].message` | **Wide only** (priority=1, shown with `-o wide`). Specific error detail for debugging |
+| Age | `.metadata.creationTimestamp` | Standard — always last per kubectl convention |
 
 The `Lifecycle` column is dropped because the `Reason` column already shows `Archived` for archived revisions — any other reason implies Active.
 
