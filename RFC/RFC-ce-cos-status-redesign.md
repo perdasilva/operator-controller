@@ -51,7 +51,7 @@ This RFC proposes changes across both the CE and COS APIs to make the CE self-su
 - `Progressing=True, Reason=ImagePullFailed` → "image pull failed, retrying"
 - `Progressing=True, Reason=ValidationFailed` → "CE validation failed (e.g., ServiceAccount not found), retrying"
 - `Progressing=True, Reason=AuthorizationFailed` → "RBAC insufficient, retrying"
-- `Progressing=True, Reason=ContentFailed` → "bundle content unsupported, retrying"
+- `Progressing=True, Reason=UnsupportedContent` → "bundle content unsupported, retrying"
 - `Progressing=True, Reason=PreflightFailed` → "CRD safety or other preflight check failed, retrying"
 - `Progressing=True, Reason=Retrying` → "COS-level transient error, retrying"
 - `Progressing=False, Reason=Blocked` → "terminal error" (unchanged)
@@ -160,7 +160,7 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 |--------|---------|-----------|
 | Ready | `.status.conditions[?(@.type=='Ready')].status` | Primary health signal — the first thing users check |
 | Progressing | `.status.conditions[?(@.type=='Progressing')].status` | Is something actively happening? Standard Kubernetes boolean |
-| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason. Each reason identifies a specific error category: `Succeeded`, `RollingOut`, `ProbeFailure`, `ResolutionFailed`, `ImagePullFailed`, `ValidationFailed`, `AuthorizationFailed`, `ContentFailed`, `PreflightFailed`, `Retrying`, `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` |
+| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason. Each reason identifies a specific error category: `Succeeded`, `RollingOut`, `ProbeFailure`, `ResolutionFailed`, `ImagePullFailed`, `ValidationFailed`, `AuthorizationFailed`, `UnsupportedContent`, `PreflightFailed`, `Retrying`, `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` |
 | Version | `.status.install.bundle.version` | What version is installed |
 | Operation | `.status.operation.type` | What kind of rollout is in progress (Install/Upgrade/Reconfigure). Empty in steady state |
 | Target | `.status.operation.bundle.version` | What version is being rolled out to. Empty in steady state |
@@ -200,7 +200,7 @@ no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade 
 |-----------|------------|-------------|----------------|
 | **Installed** | `Succeeded` — a bundle is installed | `Absent` — no bundle installed | — |
 | **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — no bundle installed (nothing deployed); `ProbeFailure` — specific probe failure on managed resources; `RollingOut` — objects in transition, probes not yet passing | `Pending` — initial state before first reconcile |
-| **Progressing** | `RollingOut` — active rollout, no issues; `ProbeFailure` — rollout active, probes failing; `ResolutionFailed` — bundle not found; `ImagePullFailed` — image pull error; `ValidationFailed` — CE validation error; `AuthorizationFailed` — RBAC insufficient; `ContentFailed` — bundle content unsupported; `PreflightFailed` — preflight check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
+| **Progressing** | `RollingOut` — active rollout, no issues; `ProbeFailure` — rollout active, probes failing; `ResolutionFailed` — bundle not found; `ImagePullFailed` — image pull error; `ValidationFailed` — CE validation error; `AuthorizationFailed` — RBAC insufficient; `UnsupportedContent` — bundle content unsupported; `PreflightFailed` — preflight check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
 | **Deprecated** | `Deprecated` — any deprecation exists | `NotDeprecated` — no deprecation | `DeprecationStatusUnknown` — catalog data unavailable |
 | **PackageDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
 | **ChannelDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
@@ -1170,13 +1170,13 @@ The bundle contains unsupported features like APIServiceDefinitions or unsupport
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON          VERSION   OPERATION   TARGET   AGE
-my-operator   True    True          ContentFailed   1.0.0     Upgrade   2.0.0    5d
+my-operator   True    True          UnsupportedContent   1.0.0     Upgrade   2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON          VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   True    True          ContentFailed   1.0.0     Upgrade   2.0.0    error for resolved bundle my-operator with version 2.0.0: unsupport...   5d
+my-operator   True    True          UnsupportedContent   1.0.0     Upgrade   2.0.0    error for resolved bundle my-operator with version 2.0.0: unsupport...   5d
 
 ```yaml
 status:
@@ -1195,7 +1195,7 @@ status:
     lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "True"
-    reason: ContentFailed
+    reason: UnsupportedContent
     message: "error for resolved bundle my-operator with version 2.0.0: unsupported bundle: apiServiceDefinitions are not supported"
     observedGeneration: 2
     lastTransitionTime: "2026-07-07T10:00:00Z"
@@ -1993,7 +1993,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ReasonImagePullFailed` | `"ImagePullFailed"` | Progressing=True | ✓ | — |
 | `ReasonValidationFailed` | `"ValidationFailed"` | Progressing=True | ✓ | ✓ |
 | `ReasonAuthorizationFailed` | `"AuthorizationFailed"` | Progressing=True | ✓ | — |
-| `ReasonContentFailed` | `"ContentFailed"` | Progressing=True | ✓ | — |
+| `ReasonUnsupportedContent` | `"UnsupportedContent"` | Progressing=True | ✓ | — |
 | `ReasonPreflightFailed` | `"PreflightFailed"` | Progressing=True | ✓ | — |
 | `ReasonRetrying` | `"Retrying"` | Progressing=True (COS-level transient) | ✓ | ✓ |
 | `ReasonBlocked` | `"Blocked"` | Progressing=False | ✓ | ✓ |
@@ -2050,7 +2050,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 |-----------|------|-------|---------|
 | **Installed** | Succeeded | Absent | — |
 | **Ready** | Succeeded | Absent, ProbeFailure, RollingOut | Pending |
-| **Progressing** | RollingOut, ProbeFailure, ResolutionFailed, ImagePullFailed, ValidationFailed, AuthorizationFailed, ContentFailed, PreflightFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
+| **Progressing** | RollingOut, ProbeFailure, ResolutionFailed, ImagePullFailed, ValidationFailed, AuthorizationFailed, UnsupportedContent, PreflightFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
 | **Deprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **PackageDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **ChannelDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
@@ -2076,7 +2076,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ImagePullFailed` | Bundle image pull failed (auth, network, missing image) | Yes |
 | `ValidationFailed` | CE validation failed (ServiceAccount not found, etc.) | Yes |
 | `AuthorizationFailed` | RBAC pre-authorization failed (ServiceAccount lacks permissions) | Yes |
-| `ContentFailed` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
+| `UnsupportedContent` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
 | `PreflightFailed` | Preflight check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
 | `ObjectCollisionDetected` | Object ownership conflict — another controller owns the resource | Yes |
 | `ValidationFailed` | Preflight or dry-run validation failed (on CE: SA not found, etc.; on COS: admission webhook, etc.) | Yes |
@@ -2152,7 +2152,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Update `ensureFailureConditionsWithReason` for new condition set (add Ready)
 - `conditionsets/conditionsets.go`:
   - Add `TypeReady` to `ConditionTypes`
-  - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonImagePullFailed`, `ReasonValidationFailed`, `ReasonAuthorizationFailed`, `ReasonContentFailed`, `ReasonPreflightFailed` to `ConditionReasons`
+  - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonImagePullFailed`, `ReasonValidationFailed`, `ReasonAuthorizationFailed`, `ReasonUnsupportedContent`, `ReasonPreflightFailed` to `ConditionReasons`
 - Update all tests
 
 ### 5.4 Documentation and Migration
