@@ -343,25 +343,26 @@ const (
 
 **Current**: `Available`, `Progressing`, `Age`
 
-**Proposed**: `Revision`, `Lifecycle`, `Ready`, `Progressing`, `Reason`, `Age`
+**Proposed**: `Revision`, `Ready`, `Progressing`, `Reason`, `Age`
 
 | Column | JSONPath | Rationale |
 |--------|---------|-----------|
 | Revision | `.spec.revision` | Which revision number — essential for debugging multi-revision scenarios |
-| Lifecycle | `.spec.lifecycleState` | Active vs Archived — immediately distinguishes current from historical revisions |
 | Ready | `.status.conditions[?(@.type=='Ready')].status` | Health signal (renamed from Available) |
 | Progressing | `.status.conditions[?(@.type=='Progressing')].status` | Is active work happening |
-| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | Why — matches the CE pattern for consistent triage |
+| Reason | `.status.conditions[?(@.type=='Progressing')].reason` | Why — `Archived` in the reason column replaces the need for a separate Lifecycle column. Matches the CE pattern for consistent triage |
 | Age | `.metadata.creationTimestamp` | Standard |
+
+The `Lifecycle` column is dropped because the `Reason` column already shows `Archived` for archived revisions — any other reason implies Active.
 
 Example with multiple revisions including archived:
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON      AGE
-my-operator-1   1          Archived    <none>   False         Archived    30d
-my-operator-2   2          Archived    <none>   False         Archived    5d
-my-operator-3   3          Active      True     False         Succeeded   1d
+NAME            REVISION   READY    PROGRESSING   REASON      AGE
+my-operator-1   1          <none>   False         Archived    30d
+my-operator-2   2          <none>   False         Archived    5d
+my-operator-3   3          True     False         Succeeded   1d
 ```
 
 ### 2.6 Complete COS Status Structure
@@ -495,8 +496,8 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1   1          Active      False   True          RollingOut   30s
+NAME            REVISION   READY   PROGRESSING   REASON       AGE
+my-operator-1   1          False   True          RollingOut   30s
 ```
 
 ```yaml
@@ -567,9 +568,9 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1   1          Active      True    False         Succeeded    5d
-my-operator-2   2          Active      False   True          RollingOut   30s
+NAME            REVISION   READY   PROGRESSING   REASON       AGE
+my-operator-1   1          True    False         Succeeded    5d
+my-operator-2   2          False   True          RollingOut   30s
 ```
 
 **Key UX point**: `Ready=False` — the new revision's objects are still rolling out, so the on-cluster state is in transition. `Installed=True` confirms the previous version was installed. `Version=1.0.0` shows what was installed, `Rollout=Upgrade` and `Target=2.0.0` show where it's headed. The COS table shows two active revisions. Once COS-2 completes, Ready returns to True.
@@ -584,9 +585,9 @@ This shows the detailed phase-level state during the same upgrade from 3.3, view
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1   1          Active      True    False         Succeeded    5d
-my-operator-2   2          Active      False   True          RollingOut   2m
+NAME            REVISION   READY   PROGRESSING   REASON       AGE
+my-operator-1   1          True    False         Succeeded    5d
+my-operator-2   2          False   True          RollingOut   2m
 ```
 
 ```yaml
@@ -700,9 +701,9 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON      AGE
-my-operator-1   1          Active      True    False         Succeeded   5d
-my-operator-2   2          Active      False   True          Retrying    10s
+NAME            REVISION   READY   PROGRESSING   REASON      AGE
+my-operator-1   1          True    False         Succeeded   5d
+my-operator-2   2          False   True          Retrying    10s
 ```
 
 **User action**: Wait. The reconfiguration is in progress.
@@ -1095,9 +1096,9 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON       AGE
-my-operator-1   1          Active      True    False         Succeeded    5d
-my-operator-2   2          Active      False   True          RollingOut   5m
+NAME            REVISION   READY   PROGRESSING   REASON       AGE
+my-operator-1   1          True    False         Succeeded    5d
+my-operator-2   2          False   True          RollingOut   5m
 ```
 
 ```yaml
@@ -1148,9 +1149,9 @@ my-operator   Unknown   True          Retrying   1.0.0     Upgrade   2.0.0    5d
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON      AGE
-my-operator-1   1          Active      True     False         Succeeded   5d
-my-operator-2   2          Active      <none>   True          Retrying    2m
+NAME            REVISION   READY    PROGRESSING   REASON      AGE
+my-operator-1   1          True     False         Succeeded   5d
+my-operator-2   2          <none>   True          Retrying    2m
 ```
 
 ```yaml
@@ -1223,8 +1224,8 @@ my-operator   False   False         Blocked   <none>    Install   1.0.0    5m
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON    AGE
-my-operator-1   1          Active      <none>   False         Blocked   5m
+NAME            REVISION   READY    PROGRESSING   REASON    AGE
+my-operator-1   1          <none>   False         Blocked   5m
 ```
 
 ```yaml
@@ -1280,9 +1281,9 @@ my-operator   Unknown   False         Blocked   1.0.0     Upgrade   2.0.0    5d
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON      AGE
-my-operator-1   1          Active      True     False         Succeeded   5d
-my-operator-2   2          Active      <none>   False         Blocked     1h
+NAME            REVISION   READY    PROGRESSING   REASON      AGE
+my-operator-1   1          True     False         Succeeded   5d
+my-operator-2   2          <none>   False         Blocked     1h
 ```
 
 ```yaml
@@ -1341,9 +1342,9 @@ my-operator   Unknown   True          Retrying   1.0.0     Upgrade   2.0.0    5d
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY    PROGRESSING   REASON      AGE
-my-operator-1   1          Active      True     False         Succeeded   5d
-my-operator-2   2          Active      <none>   True          Retrying    3m
+NAME            REVISION   READY    PROGRESSING   REASON      AGE
+my-operator-1   1          True     False         Succeeded   5d
+my-operator-2   2          <none>   True          Retrying    3m
 ```
 
 ```yaml
@@ -1436,8 +1437,8 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON                     AGE
-my-operator-1   1          Active      False   False         ProgressDeadlineExceeded   35m
+NAME            REVISION   READY   PROGRESSING   REASON                     AGE
+my-operator-1   1          False   False         ProgressDeadlineExceeded   35m
 ```
 
 ```yaml
@@ -1511,9 +1512,9 @@ status:
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   LIFECYCLE   READY   PROGRESSING   REASON                     AGE
-my-operator-1   1          Active      True    False         Succeeded                  5d
-my-operator-2   2          Active      False   False         ProgressDeadlineExceeded   35m
+NAME            REVISION   READY   PROGRESSING   REASON                     AGE
+my-operator-1   1          True    False         Succeeded                  5d
+my-operator-2   2          False   False         ProgressDeadlineExceeded   35m
 ```
 
 **Key UX point**: `Ready=False/ProbeFailure` — the CE surfaces the actual probe failure from the latest COS. `Progressing=False/ProgressDeadlineExceeded` — the upgrade timed out. `rollout` shows the failed target. `Installed=True` confirms the previous version was installed. The COS table shows the new revision (`my-operator-2`) is `Ready=False, Progressing=False` — a clear indicator of the stuck revision.
@@ -1807,7 +1808,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Add `SucceededAt *metav1.Time` field to `ClusterObjectSetStatus`
   - Add `Phases []PhaseStatus` field to `ClusterObjectSetStatus`
   - Add `PhaseStatus` and `PhaseStatusState` types
-  - Update print columns to add Revision, Lifecycle, and Reason; rename Available→Ready
+  - Update print columns to add Revision and Reason; rename Available→Ready; drop Lifecycle (redundant with Reason=Archived)
   - Remove `"Migrated"` from API doc comments (never implemented)
 - `clusterobjectset_controller.go`:
   - Set `SucceededAt` timestamp instead of `Succeeded` condition
