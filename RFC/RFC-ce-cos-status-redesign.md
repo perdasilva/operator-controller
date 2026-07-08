@@ -1395,7 +1395,22 @@ status:
     message: "Object collision: Deployment.apps/v1 my-ns/conflicting-deploy owned by ClusterObjectSet/other-ext-1"
 ```
 
-**Current vs proposed message format**: The current COS controller formats collision messages as `"revision object collisions in phase %d\n%s"` using the phase index (e.g., `phase 2`) and the raw `ObjectResult.String()` output. This RFC proposes using the phase name instead of the index (e.g., `phase "roles"`) and a cleaner single-line format: `"Object collision in phase \"<name>\": <Kind>.<GroupVersion> <namespace>/<name> owned by <OwnerKind>/<OwnerName>"`.
+**Current vs proposed message format**: The current COS controller formats collision messages as `"revision object collisions in phase %d\n%s"` using the phase index and the raw `ObjectResult.String()` output from the boxcutter library. The boxcutter `ObjectResultCollision.String()` produces a verbose multi-line format:
+
+```
+Object Deployment.apps/v1 my-ns/conflicting-deploy
+Action: "Collision"
+Probes:
+- Progress: Failed
+  - "status.updatedReplicas" != "status.replicas"
+Conflicting Owner: &OwnerReference{APIVersion:v1,Kind:ClusterObjectSet,Name:other-ext-1,...}
+```
+
+This RFC proposes the COS controller construct a cleaner, single-line message using the phase name (from `cos.Spec.Phases`) and the structured `ConflictingOwner()` accessor rather than the raw `String()` output:
+
+```
+Object collision in phase "roles": Deployment.apps/v1 my-ns/conflicting-deploy owned by ClusterObjectSet/other-ext-1
+```
 
 **Key UX point**: The CE surfaces the collision error — `Progressing=True/Retrying` with the collision details. The user can diagnose the conflict from the CE alone. `Ready=True` because the old version is still healthy.
 
