@@ -467,14 +467,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
     status: "False"
     reason: Succeeded
     message: "Desired state reached"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -502,14 +508,20 @@ status:
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: Absent
     message: "No bundle installed yet — rollout in progress"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: RollingOut
     message: "Rolling out bundle my-operator v1.0.0"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install: null
   operation:
     type: Install
@@ -532,10 +544,14 @@ status:
     status: "False"
     reason: RollingOut
     message: "Managed resources are being updated"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: RollingOut
     message: "Revision 1.0.0 is rolling out."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   phases:
   - name: namespaces
     status: Complete
@@ -571,14 +587,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: RollingOut
     message: "Managed resources are being updated"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: RollingOut
     message: "Rolling out bundle my-operator v2.0.0"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -622,10 +644,14 @@ status:
     status: "False"
     reason: RollingOut
     message: "Managed resources are being updated"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: RollingOut
     message: "Revision 2.0.0 is rolling out."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   phases:
   - name: namespaces
     status: Complete
@@ -653,10 +679,14 @@ status:
     status: "True"
     reason: ProbesSucceeded
     message: "Objects are available and pass all probes."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: Succeeded
     message: "Revision 1.0.0 has rolled out."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   phases:
   - name: namespaces
     status: Complete
@@ -704,14 +734,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: RollingOut
     message: "Managed resources are being updated"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: RollingOut
     message: "Rolling out configuration change for bundle my-operator v1.0.0"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -756,14 +792,20 @@ status:
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: ResolutionFailed
     message: "no bundles found for package \"my-operator\" matching version \">=99.0.0\" in channels [stable]"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install: null
   operation: null
 ```
@@ -796,14 +838,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: ResolutionFailed
     message: "unable to upgrade to version >=99.0.0: no bundles found for package \"my-operator\" matching version \">=99.0.0\" in channels [stable] (currently installed: v1.0.0)"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -839,14 +887,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: InvalidConfiguration
     message: "error for resolved bundle my-operator with version 2.0.0: invalid ClusterExtension configuration: unknown field \"invalidKey\""
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -886,14 +940,20 @@ status:
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: InvalidConfiguration
     message: "error for resolved bundle my-operator with version 1.0.0: invalid ClusterExtension configuration: unknown field \"invalidKey\""
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install: null
   operation:
     type: Install
@@ -930,14 +990,20 @@ status:
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: ImagePullFailed
     message: "error for resolved bundle my-operator with version 1.0.0: error copying image: authentication required"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install: null
   operation:
     type: Install
@@ -972,14 +1038,20 @@ status:
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: Blocked
     message: "error for resolved bundle my-operator with version 1.0.0: error parsing image reference \"!!!invalid\": invalid reference format"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install: null
   operation:
     type: Install
@@ -1016,14 +1088,20 @@ status:
     status: "False"
     reason: Absent
     message: "operation cannot proceed due to the following validation error(s): service account \"my-sa\" not found in namespace \"my-ns\""
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: ValidationFailed
     message: "operation cannot proceed due to the following validation error(s): service account \"my-sa\" not found in namespace \"my-ns\""
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install: null
   operation: null
 ```
@@ -1054,14 +1132,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: AuthorizationFailed
     message: "error for resolved bundle my-operator with version 2.0.0: creating new Revision: pre-authorization failed: service account requires the following permissions: [create deployments.apps in namespace my-ns, create services in namespace my-ns]"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -1101,14 +1185,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: ContentFailed
     message: "error for resolved bundle my-operator with version 2.0.0: unsupported bundle: apiServiceDefinitions are not supported"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -1149,14 +1239,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: ProbeFailure
     message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: ProbeFailure
     message: "Rolling out bundle my-operator v2.0.0: Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -1183,10 +1279,14 @@ status:
     status: "False"
     reason: ProbeFailure
     message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: RollingOut
     message: "Revision 2.0.0 is rolling out."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   phases:
   - name: namespaces
     status: Complete
@@ -1241,14 +1341,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: Retrying
     message: "revision object collisions in phase roles: Deployment.apps/v1 my-ns/conflicting-deploy: collision with controller owned by ClusterObjectSet/other-ext-1"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -1268,10 +1374,14 @@ status:
     status: "Unknown"
     reason: Reconciling
     message: "revision object collisions in phase 2\nObject Deployment..."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: ObjectCollisionDetected
     message: "revision object collisions in phase 2\nObject Deployment.apps/v1 my-ns/conflicting-deploy: collision with controller owned by ClusterObjectSet/other-ext-1"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   phases:
   - name: namespaces
     status: Complete
@@ -1320,14 +1430,20 @@ status:
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: Blocked
     message: "the following secrets are not immutable (referenced secrets must have immutable set to true): my-ns/my-secret-1, my-ns/my-secret-2"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install: null
   operation:
     type: Install
@@ -1344,10 +1460,14 @@ status:
     status: "Unknown"
     reason: Reconciling
     message: "Reconciliation blocked before probe evaluation"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: Blocked
     message: "the following secrets are not immutable (referenced secrets must have immutable set to true): my-ns/my-secret-1, my-ns/my-secret-2"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   phases: []   # no phases populated — reconciliation blocked before phase processing
 ```
 
@@ -1387,14 +1507,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: Blocked
     message: "resolved content of 1 phase(s) has changed: phase \"deploy\" (expected digest sha256:abc123, got sha256:def456); a referenced object source may have been deleted and recreated with different content"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -1414,10 +1540,14 @@ status:
     status: "Unknown"
     reason: Reconciling
     message: "Reconciliation blocked before probe evaluation"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: Blocked
     message: "resolved content of 1 phase(s) has changed: phase \"deploy\" (expected digest sha256:abc123, got sha256:def456); a referenced object source may have been deleted and recreated with different content"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   phases: []   # no phases populated — blocked before processing
 ```
 
@@ -1457,14 +1587,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: Retrying
     message: "revision validation error: dry-run apply rejected by webhook: admission controller denied the request"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -1484,10 +1620,14 @@ status:
     status: "Unknown"
     reason: Reconciling
     message: "revision validation error: dry-run apply rejected by webhook: admission controller denied the request"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: ValidationFailed
     message: "revision validation error: dry-run apply rejected by webhook: admission controller denied the request"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   phases:
   - name: namespaces
     status: Pending
@@ -1526,14 +1666,20 @@ status:
     status: "False"
     reason: Absent
     message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: ProbeFailure
     message: "Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: ProgressDeadlineExceeded
     message: "Revision has not rolled out for 30 minute(s). Last status: Revision 1.0.0 is rolling out."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install: null
   operation:
     type: Install
@@ -1556,10 +1702,14 @@ status:
     status: "False"
     reason: ProbeFailure
     message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: ProgressDeadlineExceeded
     message: "Revision has not rolled out for 30 minute(s). Last status: Revision 1.0.0 is rolling out."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   phases:
   - name: namespaces
     status: Complete
@@ -1603,14 +1753,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
     reason: ProbeFailure
     message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: ProgressDeadlineExceeded
     message: "Revision has not rolled out for 30 minute(s). Last status: Revision 2.0.0 is rolling out."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -1652,18 +1808,26 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "False"
     reason: Succeeded
     message: "Desired state reached"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Deprecated
     status: "Unknown"
     reason: DeprecationStatusUnknown
     message: "Catalog data unavailable"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -1699,14 +1863,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: PreflightFailed
     message: "error for resolved bundle my-operator with version 2.0.0: CRD upgrade safety check failed: stored version v1alpha1 removed in upgrade"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -1746,14 +1916,20 @@ status:
     status: "True"
     reason: Succeeded
     message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "True"
     reason: Succeeded
     message: "All managed resources are healthy"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
     reason: Retrying
     message: "migrating storage: listing ClusterObjectSets before attempting migration: context deadline exceeded"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
