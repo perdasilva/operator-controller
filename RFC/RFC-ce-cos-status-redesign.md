@@ -62,7 +62,7 @@ This aligns with the Kubernetes convention: `Progressing=True` means active work
 
 ### 1.2 Add Ready Condition
 
-A new `Ready` condition provides a dedicated health signal for the extension's managed resources. "Ready" is chosen over "Available" because "Available" implies service delivery semantics that OLM cannot guarantee — OLM can confirm that managed resources are on-cluster and passing probes, but not that the application is serving traffic correctly.
+A new `Ready` condition provides a dedicated health signal for the extension's managed resources. "Ready" is chosen over "Available" because "Available" implies service delivery semantics that OLM cannot guarantee — OLM can confirm that managed resources are on-cluster and passing probes, but not that the application is serving traffic correctly. Additionally, `Available` is reserved for potential future use as a stability signal — analogous to the Deployment pattern where `Available` means "Ready for at least `minReadySeconds`." If OLM later adds a concept of sustained health (e.g., "the extension has been Ready for a configured duration"), `Available` would be the natural condition for that, following established Kubernetes conventions.
 
 | Status | Reason | Meaning |
 |--------|--------|---------|
