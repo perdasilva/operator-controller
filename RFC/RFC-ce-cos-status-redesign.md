@@ -144,6 +144,7 @@ The CE controller currently mirrors COS `Available` and `Progressing` conditions
 Translation rules for the CE `Progressing` condition from COS state:
 - COS `Progressing=True/RollingOut` AND COS `Ready=False/ProbeFailure` → CE `Progressing=True/ProbeFailure` with the probe failure detail. This distinguishes a stuck rollout from a healthy one.
 - COS `Progressing=True/RollingOut` AND COS `Ready=False/RollingOut` → CE `Progressing=True/Deploying` (normal progress, no issues).
+- COS `Progressing=True/RollingOut` AND COS `Ready=Unknown/Reconciling` → CE `Progressing=True/Deploying` (momentary transient state during normal progress; the COS is still making forward progress).
 - COS `Progressing=True/Retrying` → CE `Progressing=True/Retrying` with the COS error message (collisions, validation errors, etc.)
 - COS `Progressing=False/Blocked` → CE `Progressing=False/Blocked` with the COS error message
 - COS `Progressing=False/ProgressDeadlineExceeded` → CE `Progressing=False/ProgressDeadlineExceeded` with the COS message
@@ -767,7 +768,7 @@ status:
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   REASON      AGE
 my-operator-1   1          True    False         Succeeded   5d
-my-operator-2   2          False   True          Retrying    10s
+my-operator-2   2          False   True          RollingOut  10s
 ```
 
 **User action**: Wait. The reconfiguration is in progress.
@@ -788,6 +789,7 @@ my-operator   False   True          ResolutionFailed   <none>                   
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   False   True          ResolutionFailed   <none>                         no bundles found for package \"my-operator\" matching version \">=9...   2m
+```
 
 ```yaml
 status:
@@ -814,7 +816,7 @@ status:
   operation: null
 ```
 
-**Key UX point**: `Ready=False/Absent` (nothing deployed), `Progressing=True/Retrying` with the specific resolution error. The user checks Progressing to understand what went wrong. No COS exists to inspect. No `operation` is set because resolution hasn't succeeded yet (we don't know the target bundle).
+**Key UX point**: `Ready=False/Absent` (nothing deployed), `Progressing=True/ResolutionFailed` with the specific resolution error. The user checks Progressing to understand what went wrong. No COS exists to inspect. No `operation` is set because resolution hasn't succeeded yet (we don't know the target bundle).
 
 **User action**: Fix the package name, version constraint, or channel in the CE spec. Or add a catalog containing the desired package.
 
@@ -834,6 +836,7 @@ my-operator   True    True          ResolutionFailed   1.0.0                    
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   True    True          ResolutionFailed   1.0.0                          unable to upgrade to version >=99.0.0: no bundles found for package...   5d
+```
 
 ```yaml
 status:
@@ -883,6 +886,7 @@ my-operator   True    False         InvalidConfiguration   1.0.0     Upgrade    
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                 VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   True    False         InvalidConfiguration   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: invalid C...   5d
+```
 
 ```yaml
 status:
@@ -936,6 +940,7 @@ my-operator   False   False         InvalidConfiguration   <none>    Install    
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                 VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   False   False         InvalidConfiguration   <none>    Install     1.0.0    error for resolved bundle my-operator with version 1.0.0: invalid C...   2m
+```
 
 ```yaml
 status:
@@ -986,6 +991,7 @@ my-operator   False   True          ImagePullFailed   <none>    Install     1.0.
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON            VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   False   True          ImagePullFailed   <none>    Install     1.0.0    error for resolved bundle my-operator with version 1.0.0: error cop...   5m
+```
 
 ```yaml
 status:
@@ -1034,6 +1040,7 @@ my-operator   False   False         Blocked   <none>    Install     1.0.0    2m
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON    VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   False   False         Blocked   <none>    Install     1.0.0    error for resolved bundle my-operator with version 1.0.0: error par...   2m
+```
 
 ```yaml
 status:
@@ -1077,13 +1084,14 @@ The ServiceAccount specified in `spec.serviceAccount.name` does not exist.
 ```
 $ kubectl get clusterextensions
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   AGE
-my-operator   False   True          ValidationFailed   <none>                         1m
+my-operator   False   True          ValidationFailed   <none>    Install     1.0.0    1m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON             VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   False   True          ValidationFailed   <none>                         operation cannot proceed due to the following validation error(s): ...   1m
+my-operator   False   True          ValidationFailed   <none>    Install     1.0.0    operation cannot proceed due to the following validation error(s): ...   1m
+```
 
 ```yaml
 status:
@@ -1107,7 +1115,11 @@ status:
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   install: null
-  operation: null
+  operation:
+    type: Install
+    bundle:
+      name: my-operator
+      version: 1.0.0
 ```
 
 **User action**: Create the ServiceAccount or fix the name/namespace in the CE spec.
@@ -1128,6 +1140,7 @@ my-operator   True    True          AuthorizationFailed   1.0.0     Upgrade     
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   True    True          AuthorizationFailed   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: creating ...   5d
+```
 
 ```yaml
 status:
@@ -1181,6 +1194,7 @@ my-operator   True    True          UnsupportedContent   1.0.0     Upgrade     2
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON               VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   True    True          UnsupportedContent   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: unsupport...   5d
+```
 
 ```yaml
 status:
@@ -1234,6 +1248,7 @@ my-operator   False   True          ProbeFailure   1.0.0     Upgrade     2.0.0  
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON         VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   False   True          ProbeFailure   1.0.0     Upgrade     2.0.0    Rolling out bundle my-operator v2.0.0: Object Deployment.apps/v1 my...   5d
+```
 
 ```yaml
 # CE status
@@ -1678,6 +1693,7 @@ my-operator   False   False         ProgressDeadlineExceeded   <none>    Install
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                     VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   False   False         ProgressDeadlineExceeded   <none>    Install     1.0.0    Revision has not rolled out for 30 minute(s). Last status: Revision...   35m
+```
 
 ```yaml
 # CE status
@@ -1766,6 +1782,7 @@ my-operator   False   False         ProgressDeadlineExceeded   1.0.0     Upgrade
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON                     VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   False   False         ProgressDeadlineExceeded   1.0.0     Upgrade     2.0.0    Revision has not rolled out for 30 minute(s). Last status: Revision...   5d
+```
 
 ```yaml
 status:
@@ -1876,6 +1893,7 @@ my-operator   True    True          SafetyCheckFailed   1.0.0     Upgrade     2.
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON              VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   True    True          SafetyCheckFailed   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: CRD upgra...   5d
+```
 
 ```yaml
 status:
@@ -1929,6 +1947,7 @@ my-operator   True    True          Retrying   1.0.0                          30
 $ kubectl get clusterextensions -o wide
 NAME          READY   PROGRESSING   REASON     VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   True    True          Retrying   1.0.0                          migrating storage: listing ClusterObjectSets before attempting migr...   30d
+```
 
 ```yaml
 status:
@@ -2159,7 +2178,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Add `ClusterExtensionOperationStatus` type and `OperationType` enum
   - Add `Operation` field to `ClusterExtensionStatus`
   - Remove `ActiveRevisions` field and `RevisionStatus` type
-  - Update print columns (Ready, Progressing, Reason, Version, Rollout, Target, Age, Message[wide])
+  - Update print columns (Ready, Progressing, Reason, Version, Operation, Target, Age, Message[wide])
 - `common_controller.go`:
   - Add `setReadyCondition()` helper functions
   - Update `setInstalledStatusFromRevisionStates()` to also set Ready
@@ -2292,6 +2311,8 @@ Add per-phase status fields on CE as well as COS, making CE completely self-suff
 
 4. **Phase status for migrated revisions**: ✅ Resolved. Migrated COS revisions (from `BoxcutterStorageMigrator`) did not go through the phased rollout process. Their `status.phases` will be empty, and they will have `succeededAt` set. This is acceptable because migrated revisions represent pre-existing workloads that were already running.
 
+5. **Rollout type for downgrades**: ✅ Resolved. Not adding a `Downgrade` type now. `Upgrade` covers all version changes regardless of direction. A `Downgrade` type can be added non-breakingly later (it's an additive enum change) if users or tooling demonstrate a need for the distinction.
+
 ### Open Questions
 
 1. **Backward compatibility for condition consumers**: Tooling that watches for `Progressing=True/Succeeded` will break when the semantics change to `Progressing=False/Succeeded`. This needs to be communicated clearly in release notes. Since the COS API and the experimental CE fields are not yet GA, this is less of a concern for those changes. The CE `Progressing` fix is a bug fix and should be documented as such.
@@ -2299,8 +2320,6 @@ Add per-phase status fields on CE as well as COS, making CE completely self-suff
 2. **Phase status message size**: Probe failure messages can be verbose (they include full GVK, namespace/name, and probe details). For phases with many objects, the concatenated message could be large. The current COS controller breaks after the first failing object per phase. We should adopt a similar strategy and potentially limit message size.
 
 3. **Ready condition and resource drift**: Since Ready now tracks the latest active COS's probe state, drift on the installed revision would be reflected if the COS re-reconciles and temporarily reports probes failing. This is consistent with the "track actual on-cluster state" principle — if probes are temporarily failing, Ready should reflect that. The condition will recover once the COS re-reconciles and probes pass again.
-
-4. **Rollout type for downgrades**: The RFC defines `Install`, `Upgrade`, and `Reconfigure` rollout types. Should we add a `Downgrade` type for cases where the target version is lower than the installed version? Or is `Upgrade` sufficient (it's still a version change, just in the other direction)?
 
 # **RACI**
 
