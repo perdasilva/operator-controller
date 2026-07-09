@@ -353,12 +353,14 @@ const (
 
 | Condition | Status=True | Status=False | Status=Unknown |
 |-----------|------------|-------------|----------------|
-| **Ready** | `ProbesSucceeded` — all managed objects pass probes | `ProbeFailure` — one or more probe failures; `RollingOut` — rollout not yet complete | `Reconciling` — transient error; `Archived` — revision archived |
+| **Ready** | `ProbesSucceeded` — all managed objects pass probes | `ProbeFailure` — one or more probe failures; `RollingOut` — rollout not yet complete | `Reconciling` — transient error |
+
+**Note:** The `Ready` condition is not set on archived revisions — their objects have been torn down, so readiness is not applicable. The `Archived` reason on `Progressing` already conveys the lifecycle state.
 | **Progressing** | `RollingOut` — active rollout; `ObjectCollisionDetected` — object ownership conflict; `ValidationFailed` — preflight/dry-run failure; `Retrying` — other transient error | `Succeeded` — rollout complete; `Blocked` — terminal error; `Archived` — revision archived; `ProgressDeadlineExceeded` — deadline exceeded | — |
 
 **Key changes**:
 - `Progressing=True, Reason=Succeeded` (the same bug as CE) is fixed to `Progressing=False, Reason=Succeeded`.
-- The `Ready` condition is always set on first reconcile, even if probes haven't been evaluated. Pre-phase errors set `Ready=Unknown/Reconciling` rather than leaving the condition absent. This follows the Kubernetes convention that controllers should signal awareness of a condition on first visit.
+- The `Ready` condition is always set on first reconcile for **active** revisions, even if probes haven't been evaluated. Pre-phase errors set `Ready=Unknown/Reconciling` rather than leaving the condition absent. Archived revisions do NOT set `Ready` — their objects have been torn down, so readiness is not applicable.
 
 ### 2.5 Updated COS Print Columns
 
@@ -381,10 +383,10 @@ Example with multiple revisions including archived:
 
 ```
 $ kubectl get clusterobjectsets
-NAME            REVISION   READY     PROGRESSING   REASON      AGE
-my-operator-1   1          Unknown   False         Archived    30d
-my-operator-2   2          Unknown   False         Archived    5d
-my-operator-3   3          True      False         Succeeded   1d
+NAME            REVISION   READY    PROGRESSING   REASON      AGE
+my-operator-1   1          <none>   False         Archived    30d
+my-operator-2   2          <none>   False         Archived    5d
+my-operator-3   3          True     False         Succeeded   1d
 ```
 
 ### 2.6 Complete COS Status Structure
@@ -398,7 +400,9 @@ type ClusterObjectSetStatus struct {
     //   - When status is False and reason is ProbeFailure, one or more objects are failing their probes.
     //   - When status is False and reason is RollingOut, the rollout is in progress and readiness has not been established.
     //   - When status is Unknown and reason is Reconciling, a transient error prevented probe observation.
-    //   - When status is Unknown and reason is Archived, the revision has been archived and its objects torn down.
+    //
+    // The Ready condition is not set on archived revisions — readiness is not applicable
+    // when objects have been torn down.
     //
     // The Progressing condition represents whether the revision is actively rolling out:
     //   - When status is True and reason is RollingOut, the revision is actively making progress.
@@ -2051,7 +2055,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 
 | Constant | Value | Used on |
 |----------|-------|---------|
-| `ClusterObjectSetReasonArchived` | `"Archived"` | Progressing=False, Ready=Unknown |
+| `ClusterObjectSetReasonArchived` | `"Archived"` | Progressing=False |
 | `ClusterObjectSetReasonProbesSucceeded` | `"ProbesSucceeded"` | Ready=True |
 | `ClusterObjectSetReasonReconciling` | `"Reconciling"` | Ready=Unknown |
 | `ClusterObjectSetReasonObjectCollisionDetected` | `"ObjectCollisionDetected"` | Progressing=True |
@@ -2078,7 +2082,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 
 | Condition | True | False | Unknown |
 |-----------|------|-------|---------|
-| **Ready** | ProbesSucceeded | ProbeFailure, RollingOut | Reconciling, Archived |
+| **Ready** | ProbesSucceeded | ProbeFailure, RollingOut | Reconciling |
 | **Progressing** | RollingOut, ObjectCollisionDetected, ValidationFailed, Retrying | Succeeded, Blocked, Archived, ProgressDeadlineExceeded | — |
 
 ### 4.5 Reason Semantics
