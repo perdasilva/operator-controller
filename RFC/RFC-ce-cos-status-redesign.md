@@ -503,7 +503,7 @@ The extension is installed and was healthy, but someone (or another controller) 
 ```
 $ kubectl get clusterextensions
 NAME          VERSION   READY   PROGRESSING   STATUS         OPERATION   TARGET   AGE
-my-operator   1.0.0     False   False         Succeeded                          5d
+my-operator   1.0.0     False   True          ProbeFailure                        5d
 ```
 
 ```yaml
@@ -522,11 +522,11 @@ status:
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
-    status: "False"
-    reason: Succeeded
-    message: "Desired state reached"
+    status: "True"
+    reason: ProbeFailure
+    message: "Object Deployment.apps/v1 my-ns/my-deploy: object not found"
     observedGeneration: 1
-    lastTransitionTime: "2026-07-02T08:00:00Z"
+    lastTransitionTime: "2026-07-07T10:00:00Z"
   install:
     bundle:
       name: my-operator
@@ -534,9 +534,9 @@ status:
   operation: null
 ```
 
-**Key UX point**: `Ready=False/ProbeFailure` combined with `Progressing=False/Succeeded` uniquely identifies drift — the system is broken but no rollout is stuck. There is no new COS revision; the existing COS re-reconciles and re-creates the missing resource. Once probes pass again, `Ready` returns to `True/Succeeded`. No `operation` is set because drift recovery is not a revision-level rollout — it's the COS self-healing within the current revision.
+**Key UX point**: `Ready=False/ProbeFailure` with `Progressing=True/ProbeFailure` — the COS is actively re-creating the missing resource and waiting for probes to pass. No `operation` is set because drift recovery is not a revision-level rollout — it's the COS self-healing within the current revision (no new COS is created). The absence of `operation` distinguishes drift recovery from a stuck upgrade (§3.14), where `operation` shows the target version.
 
-**Distinguishing from other `Ready=False` states**: In every other scenario where `Ready=False`, either `Progressing=True` (active rollout or retrying) or `Progressing=False/Blocked|InvalidConfiguration|ProgressDeadlineExceeded` (terminal error). `Progressing=False/Succeeded` with `Ready=False` can only mean drift.
+Once the COS re-applies the resource and probes pass, both conditions return to their steady state: `Ready=True/Succeeded` and `Progressing=False/Succeeded`.
 
 **User action**: Typically none — the COS self-heals within seconds. If the resource keeps being deleted (e.g., by another controller), investigate the external cause. If `Ready` does not recover, check the COS for details.
 
