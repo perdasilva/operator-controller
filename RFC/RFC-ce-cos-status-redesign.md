@@ -155,6 +155,14 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 
 **Current**: `Installed Bundle`, `Version`, `Installed`, `Progressing`, `Age`
 
+```
+$ kubectl get clusterextensions
+NAME              INSTALLED BUNDLE                     VERSION   INSTALLED   PROGRESSING   AGE
+cert-manager      quay.io/example/cert-manager:v1.14   1.14.0    True        True          30d
+my-operator       quay.io/example/my-operator:v1.0     1.0.0     True        True          5d
+broken-operator                                                  False       True          2h
+```
+
 **Proposed**: `Version`, `Ready`, `Progressing`, `Status`, `Operation`, `Target`, `Age`
 
 | Column | JSONPath | Rationale |
@@ -366,6 +374,13 @@ const (
 ### 2.5 Updated COS Print Columns
 
 **Current**: `Available`, `Progressing`, `Age`
+
+```
+$ kubectl get clusterobjectsets
+NAME            AVAILABLE   PROGRESSING   AGE
+my-operator-1   True        True          30d
+my-operator-2   False       True          5m
+```
 
 **Proposed**: `Revision`, `Ready`, `Progressing`, `Status`, `Age` (+ `Message` with `-o wide`)
 
