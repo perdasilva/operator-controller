@@ -496,6 +496,47 @@ status:
 
 ---
 
+### 3.1a Happy Path: Initial State (Pre-Reconcile)
+
+A ClusterExtension has just been created. The controller has not yet reconciled it — this is the brief initial state before any work begins.
+
+```
+$ kubectl get clusterextensions
+NAME          READY     PROGRESSING   STATUS      VERSION   OPERATION   TARGET   AGE
+my-operator   Unknown   True          Deploying   <none>                         2s
+```
+
+```yaml
+status:
+  conditions:
+  - type: Installed
+    status: "False"
+    reason: Absent
+    message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Ready
+    status: "Unknown"
+    reason: Pending
+    message: "Waiting for initial reconciliation"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Progressing
+    status: "True"
+    reason: Deploying
+    message: "Extension is being processed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  install: null
+  operation: null
+```
+
+**Key UX point**: `Ready=Unknown/Pending` is a transient state that lasts only until the first reconcile completes (typically seconds). No COS exists yet. Once the controller processes the CE, it transitions to one of the other states (§3.2 if install begins, §3.5 if resolution fails, etc.).
+
+**User action**: Wait. This state resolves within seconds.
+
+---
+
 ### 3.2 Happy Path: First Install In Progress
 
 A new ClusterExtension is being installed for the first time. The COS is rolling out phases sequentially.
@@ -772,6 +813,101 @@ my-operator-2   2          False   True          RollingOut  10s
 ```
 
 **User action**: Wait. The reconfiguration is in progress.
+
+---
+
+### 3.4a Error: Reconfiguration Probe Failure
+
+The user changed configuration (e.g., set an invalid resource limit, changed a config value) without changing the version. The new COS revision is rolling out but a Deployment's pods are failing probes.
+
+```
+$ kubectl get clusterextensions
+NAME          READY   PROGRESSING   STATUS         VERSION   OPERATION     TARGET   AGE
+my-operator   False   True          ProbeFailure   1.0.0     Reconfigure   1.0.0    5d
+```
+
+```
+$ kubectl get clusterextensions -o wide
+NAME          READY   PROGRESSING   STATUS         VERSION   OPERATION     TARGET   MESSAGE                                                                  AGE
+my-operator   False   True          ProbeFailure   1.0.0     Reconfigure   1.0.0    Rolling out configuration change for bundle my-operator v1.0.0: Obj...   5d
+```
+
+```yaml
+status:
+  conditions:
+  - type: Installed
+    status: "True"
+    reason: Succeeded
+    message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
+  - type: Ready
+    status: "False"
+    reason: ProbeFailure
+    message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Progressing
+    status: "True"
+    reason: ProbeFailure
+    message: "Rolling out configuration change for bundle my-operator v1.0.0: Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  install:
+    bundle:
+      name: my-operator
+      version: 1.0.0
+  operation:
+    type: Reconfigure
+    bundle:
+      name: my-operator
+      version: 1.0.0
+```
+
+```
+$ kubectl get clusterobjectsets
+NAME            REVISION   READY   PROGRESSING   STATUS       AGE
+my-operator-1   1          True    False         Succeeded    5d
+my-operator-2   2          False   True          RollingOut   5m
+```
+
+```yaml
+# COS my-operator-2 status (deep debugging)
+status:
+  conditions:
+  - type: Ready
+    status: "False"
+    reason: ProbeFailure
+    message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Progressing
+    status: "True"
+    reason: RollingOut
+    message: "Revision 1.0.0 is rolling out."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  phases:
+  - name: namespaces
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - name: crds
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:05Z"
+  - name: roles
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:08Z"
+  - name: deploy
+    status: Failed
+    lastTransitionTime: "2026-07-07T10:00:10Z"
+    message: "Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+  - name: publish
+    status: Pending
+```
+
+**Key UX point**: `Operation=Reconfigure` and `VERSION=TARGET=1.0.0` make clear this is a configuration change gone wrong, not an upgrade. The user knows the version didn't change — the problem is the new configuration. Compare with §3.14 where `Operation=Upgrade` and different VERSION/TARGET values signal a version change.
+
+**User action**: Investigate the probe failure. Revert the configuration change if the new settings are the cause (e.g., invalid resource limits causing OOMKills).
 
 ---
 
@@ -1327,6 +1463,98 @@ status:
 **Key UX point**: From the CE alone, the user can see an upgrade is happening and that a probe is failing — `Ready=False/ProbeFailure` shows the health issue on the latest COS, and the Progressing message includes the probe failure detail. The COS provides deeper phase-level debugging for users who need it.
 
 **User action**: Investigate the Deployment (check pods, events, image availability).
+
+---
+
+### 3.14a COS Error: Probe Failure (First Install)
+
+Same as §3.14 but during a first-time installation — no previous version exists.
+
+```
+$ kubectl get clusterextensions
+NAME          READY   PROGRESSING   STATUS         VERSION   OPERATION   TARGET   AGE
+my-operator   False   True          ProbeFailure   <none>    Install     1.0.0    10m
+```
+
+```
+$ kubectl get clusterextensions -o wide
+NAME          READY   PROGRESSING   STATUS         VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
+my-operator   False   True          ProbeFailure   <none>    Install     1.0.0    Rolling out bundle my-operator v1.0.0: Object Deployment.apps/v1 my...   10m
+```
+
+```yaml
+# CE status
+status:
+  conditions:
+  - type: Installed
+    status: "False"
+    reason: Absent
+    message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Ready
+    status: "False"
+    reason: ProbeFailure
+    message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Progressing
+    status: "True"
+    reason: ProbeFailure
+    message: "Rolling out bundle my-operator v1.0.0: Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  install: null
+  operation:
+    type: Install
+    bundle:
+      name: my-operator
+      version: 1.0.0
+```
+
+```
+$ kubectl get clusterobjectsets
+NAME            REVISION   READY   PROGRESSING   STATUS       AGE
+my-operator-1   1          False   True          RollingOut   10m
+```
+
+```yaml
+# COS my-operator-1 status (deep debugging)
+status:
+  conditions:
+  - type: Ready
+    status: "False"
+    reason: ProbeFailure
+    message: "Object Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Progressing
+    status: "True"
+    reason: RollingOut
+    message: "Revision 1.0.0 is rolling out."
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  phases:
+  - name: namespaces
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - name: crds
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:05Z"
+  - name: roles
+    status: Complete
+    lastTransitionTime: "2026-07-07T10:00:08Z"
+  - name: deploy
+    status: Failed
+    lastTransitionTime: "2026-07-07T10:00:10Z"
+    message: "Deployment.apps/v1 my-ns/my-deploy: \"status.updatedReplicas\" != \"status.replicas\" expected: 3 got: 0"
+  - name: publish
+    status: Pending
+```
+
+**Key UX point**: Compare with §3.14 (upgrade probe failure): `VERSION=<none>` (nothing installed yet), `Installed=False/Absent`, and only one COS revision exists. The user sees a starker picture — there's no fallback version running. `Ready=False/ProbeFailure` rather than `Ready=False/Absent` tells the user that resources *were* deployed but aren't healthy, which is more actionable than "nothing deployed."
+
+**User action**: Investigate the Deployment (check pods, events, image availability). This is more urgent than §3.14 because there is no previously working version to fall back to.
 
 ---
 
