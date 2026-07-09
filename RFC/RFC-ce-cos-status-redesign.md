@@ -49,7 +49,7 @@ This RFC proposes changes across both the CE and COS APIs to make the CE self-su
 - `Progressing=True, Reason=ProbeFailure` → "rollout in progress but probes failing"
 - `Progressing=True, Reason=ResolutionFailed` → "bundle resolution failed, retrying"
 - `Progressing=True, Reason=ImagePullFailed` → "image pull failed, retrying"
-- `Progressing=True, Reason=ValidationFailed` → "CE validation failed (e.g., ServiceAccount not found), retrying"
+- `Progressing=True, Reason=PreflightFailed` → "CE preflight check failed (e.g., ServiceAccount not found), retrying"
 - `Progressing=True, Reason=AuthorizationFailed` → "RBAC insufficient, retrying"
 - `Progressing=True, Reason=UnsupportedContent` → "bundle content unsupported, retrying"
 - `Progressing=True, Reason=SafetyCheckFailed` → "CRD safety or other preflight check failed, retrying"
@@ -162,7 +162,7 @@ This ensures the RFC's guiding principle holds: users can understand, diagnose, 
 | Version | `.status.install.bundle.version` | What version is installed — immediately identifies the extension alongside its name |
 | Ready | `.status.conditions[?(@.type=='Ready')].status` | Primary health signal |
 | Progressing | `.status.conditions[?(@.type=='Progressing')].status` | Is something actively happening? Standard Kubernetes boolean |
-| Status | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason, displayed as a user-facing status (following the Pod `STATUS` column convention). Each value identifies a specific state: `Succeeded`, `Deploying`, `ProbeFailure`, `ResolutionFailed`, `ImagePullFailed`, `ValidationFailed`, `AuthorizationFailed`, `UnsupportedContent`, `SafetyCheckFailed`, `Retrying`, `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` |
+| Status | `.status.conditions[?(@.type=='Progressing')].reason` | **Why** — the Progressing condition's reason, displayed as a user-facing status (following the Pod `STATUS` column convention). Each value identifies a specific state: `Succeeded`, `Deploying`, `ProbeFailure`, `ResolutionFailed`, `ImagePullFailed`, `PreflightFailed`, `AuthorizationFailed`, `UnsupportedContent`, `SafetyCheckFailed`, `Retrying`, `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` |
 | Operation | `.status.operation.type` | What kind of rollout is in progress (Install/Upgrade/Reconfigure). Empty in steady state |
 | Target | `.status.operation.bundle.version` | What version is being rolled out to. Empty in steady state |
 | Message | `.status.conditions[?(@.type=='Progressing')].message` | **Wide only** (priority=1, shown with `-o wide`). The Progressing condition's message — gives the specific error detail inline without requiring `kubectl describe` |
@@ -201,7 +201,7 @@ no-rbac           1.0.0     True    True          AuthorizationFailed   Upgrade 
 |-----------|------------|-------------|----------------|
 | **Installed** | `Succeeded` — a bundle is installed | `Absent` — no bundle installed | — |
 | **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — no bundle installed (nothing deployed); `ProbeFailure` — specific probe failure on managed resources; `Deploying` — objects in transition, probes not yet passing | `Pending` — initial state before first reconcile |
-| **Progressing** | `Deploying` — active deployment, no issues; `ProbeFailure` — deployment active, probes failing; `ResolutionFailed` — bundle not found; `ImagePullFailed` — image pull error; `ValidationFailed` — CE validation error; `AuthorizationFailed` — RBAC insufficient; `UnsupportedContent` — bundle content unsupported; `SafetyCheckFailed` — safety check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
+| **Progressing** | `Deploying` — active deployment, no issues; `ProbeFailure` — deployment active, probes failing; `ResolutionFailed` — bundle not found; `ImagePullFailed` — image pull error; `PreflightFailed` — CE preflight check failed (e.g., ServiceAccount not found); `AuthorizationFailed` — RBAC insufficient; `UnsupportedContent` — bundle content unsupported; `SafetyCheckFailed` — safety check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
 | **Deprecated** | `Deprecated` — any deprecation exists | `NotDeprecated` — no deprecation | `DeprecationStatusUnknown` — catalog data unavailable |
 | **PackageDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
 | **ChannelDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
@@ -1265,14 +1265,14 @@ The ServiceAccount specified in `spec.serviceAccount.name` does not exist.
 
 ```
 $ kubectl get clusterextensions
-NAME          VERSION   READY   PROGRESSING   STATUS             OPERATION   TARGET   AGE
-my-operator   <none>    False   True          ValidationFailed   Install     1.0.0    1m
+NAME          VERSION   READY   PROGRESSING   STATUS            OPERATION   TARGET   AGE
+my-operator   <none>    False   True          PreflightFailed   Install     1.0.0    1m
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
-NAME          VERSION   READY   PROGRESSING   STATUS             OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   <none>    False   True          ValidationFailed   Install     1.0.0    operation cannot proceed due to the following validation error(s): ...   1m
+NAME          VERSION   READY   PROGRESSING   STATUS            OPERATION   TARGET   MESSAGE                                                                  AGE
+my-operator   <none>    False   True          PreflightFailed   Install     1.0.0    operation cannot proceed due to the following validation error(s): ...   1m
 ```
 
 ```yaml
@@ -1292,7 +1292,7 @@ status:
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
     status: "True"
-    reason: ValidationFailed
+    reason: PreflightFailed
     message: "operation cannot proceed due to the following validation error(s): service account \"my-sa\" not found in namespace \"my-ns\""
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
@@ -2306,7 +2306,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ReasonRollingOut` | `"RollingOut"` | COS: Progressing=True, Ready=False | — | ✓ |
 | `ReasonResolutionFailed` | `"ResolutionFailed"` | Progressing=True | ✓ | — |
 | `ReasonImagePullFailed` | `"ImagePullFailed"` | Progressing=True | ✓ | — |
-| `ReasonValidationFailed` | `"ValidationFailed"` | Progressing=True | ✓ | ✓ |
+| `ReasonPreflightFailed` | `"PreflightFailed"` | Progressing=True | ✓ | — |
 | `ReasonAuthorizationFailed` | `"AuthorizationFailed"` | Progressing=True | ✓ | — |
 | `ReasonUnsupportedContent` | `"UnsupportedContent"` | Progressing=True | ✓ | — |
 | `ReasonSafetyCheckFailed` | `"SafetyCheckFailed"` | Progressing=True | ✓ | — |
@@ -2352,6 +2352,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ClusterObjectSetReasonProbesSucceeded` | `"ProbesSucceeded"` | Ready=True |
 | `ClusterObjectSetReasonReconciling` | `"Reconciling"` | Ready=Unknown |
 | `ClusterObjectSetReasonObjectCollisionDetected` | `"ObjectCollisionDetected"` | Progressing=True |
+| `ClusterObjectSetReasonValidationFailed` | `"ValidationFailed"` | Progressing=True |
 
 **Removed:** `ClusterObjectSetReasonBlocked` (use shared `ReasonBlocked`), `ClusterObjectSetReasonProbeFailure` (use shared `ReasonProbeFailure`), `ClusterObjectSetReasonRetrying` (use shared `ReasonRetrying`).
 
@@ -2365,7 +2366,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 |-----------|------|-------|---------|
 | **Installed** | Succeeded | Absent | — |
 | **Ready** | Succeeded | Absent, ProbeFailure, Deploying | Pending |
-| **Progressing** | Deploying, ProbeFailure, ResolutionFailed, ImagePullFailed, ValidationFailed, AuthorizationFailed, UnsupportedContent, SafetyCheckFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
+| **Progressing** | Deploying, ProbeFailure, ResolutionFailed, ImagePullFailed, PreflightFailed, AuthorizationFailed, UnsupportedContent, SafetyCheckFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
 | **Deprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **PackageDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **ChannelDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
@@ -2394,7 +2395,8 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `UnsupportedContent` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
 | `SafetyCheckFailed` | Preflight check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
 | `ObjectCollisionDetected` | Object ownership conflict — another controller owns the resource | Yes |
-| `ValidationFailed` | Preflight or dry-run validation failed (on CE: SA not found, etc.; on COS: admission webhook, etc.) | Yes |
+| `PreflightFailed` | CE preflight check failed (ServiceAccount not found, other CE-level validation) | Yes |
+| `ValidationFailed` | COS dry-run or admission validation failed (webhook rejection, schema validation) | Yes |
 | `Retrying` | COS-level transient error (secret resolution, watch setup, engine error) | Yes |
 | `Blocked` | Terminal error requiring manual intervention | No |
 | `InvalidConfiguration` | User configuration error requiring spec change | No |
@@ -2467,7 +2469,7 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
   - Update `ensureFailureConditionsWithReason` for new condition set (add Ready)
 - `conditionsets/conditionsets.go`:
   - Add `TypeReady` to `ConditionTypes`
-  - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonImagePullFailed`, `ReasonValidationFailed`, `ReasonAuthorizationFailed`, `ReasonUnsupportedContent`, `ReasonSafetyCheckFailed` to `ConditionReasons`
+  - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonImagePullFailed`, `ReasonPreflightFailed`, `ReasonAuthorizationFailed`, `ReasonUnsupportedContent`, `ReasonSafetyCheckFailed` to `ConditionReasons`
 - Update all tests
 
 ### 5.4 Documentation and Migration
