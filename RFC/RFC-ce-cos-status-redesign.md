@@ -473,6 +473,18 @@ This section walks through every major scenario a user may encounter. For each s
 
 The extension is installed and healthy. No work in progress.
 
+**Current output** (what users see today):
+
+```
+$ kubectl get clusterextensions
+NAME          INSTALLED BUNDLE                         VERSION   INSTALLED   PROGRESSING   AGE
+my-operator   quay.io/example/my-operator:v1.0.0       1.0.0     True        True          5d
+```
+
+`PROGRESSING=True` even though nothing is happening — this is the `Progressing=True/Succeeded` bug. Every healthy, idle extension looks like it's actively progressing.
+
+**Proposed output**:
+
 ```
 $ kubectl get clusterextensions
 NAME          VERSION   READY   PROGRESSING   STATUS      OPERATION   TARGET   AGE
@@ -681,6 +693,18 @@ status:
 
 The user changed the version constraint. A new COS revision is rolling out while the old version continues serving.
 
+**Current output** (what users see today):
+
+```
+$ kubectl get clusterextensions
+NAME          INSTALLED BUNDLE                         VERSION   INSTALLED   PROGRESSING   AGE
+my-operator   quay.io/example/my-operator:v1.0.0       1.0.0     True        True          5d
+```
+
+Indistinguishable from §3.1 (steady state) — same `PROGRESSING=True`. No indication an upgrade is happening, no target version, no health signal. The user must inspect the COS to understand what's going on.
+
+**Proposed output**:
+
 ```
 $ kubectl get clusterextensions
 NAME          VERSION   READY   PROGRESSING   STATUS      OPERATION   TARGET   AGE
@@ -719,6 +743,19 @@ status:
       version: 2.0.0
 ```
 
+**Current COS output**:
+
+```
+$ kubectl get clusterobjectsets
+NAME            AVAILABLE   PROGRESSING   AGE
+my-operator-1   True        True          5d
+my-operator-2   False       True          30s
+```
+
+No revision number, no status reason — the user can see two COS objects exist but can't tell which is the old vs new revision or why one is unavailable.
+
+**Proposed COS output**:
+
 ```
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY   PROGRESSING   STATUS       AGE
@@ -735,6 +772,19 @@ my-operator-2   2          False   True          RollingOut   30s
 ### 3.3a Happy Path: Upgrade — Phase-Level View of Both Revisions
 
 This shows the detailed phase-level state during the same upgrade from 3.3, viewed from both COS revisions. COS-2 is in the middle of its phased rollout, adopting objects from COS-1 phase by phase.
+
+**Current COS output** (what users see today):
+
+```
+$ kubectl get clusterobjectsets
+NAME            AVAILABLE   PROGRESSING   AGE
+my-operator-1   True        True          5d
+my-operator-2   False       True          2m
+```
+
+No revision number, no status reason, no phase detail. The user knows two COS objects exist and one is unavailable, but nothing else. To understand the rollout progress, they must `kubectl describe` each COS and manually inspect individual managed objects.
+
+**Proposed COS output**:
 
 ```
 $ kubectl get clusterobjectsets
@@ -1022,6 +1072,18 @@ status:
 ### 3.6 CE Error: Bundle Not Found (During Upgrade)
 
 The user requests an upgrade to a version that doesn't exist, but the old version is still running.
+
+**Current output** (what users see today):
+
+```
+$ kubectl get clusterextensions
+NAME          INSTALLED BUNDLE                         VERSION   INSTALLED   PROGRESSING   AGE
+my-operator   quay.io/example/my-operator:v1.0.0       1.0.0     True        True          5d
+```
+
+Identical to §3.1 (steady state) and §3.3 (upgrade in progress). The resolution error is completely invisible — the user has no idea that their version constraint doesn't match any available bundle.
+
+**Proposed output**:
 
 ```
 $ kubectl get clusterextensions
@@ -1435,6 +1497,18 @@ status:
 
 The COS revision is stuck because a Deployment's pods are not ready (e.g., image pull backoff, crash loop).
 
+**Current output** (what users see today):
+
+```
+$ kubectl get clusterextensions
+NAME          INSTALLED BUNDLE                         VERSION   INSTALLED   PROGRESSING   AGE
+my-operator   quay.io/example/my-operator:v1.0.0       1.0.0     True        True          5d
+```
+
+The probe failure is completely invisible on the CE. The user must inspect the COS to discover that a Deployment is stuck. Again, identical to steady state (§3.1).
+
+**Proposed output**:
+
 ```
 $ kubectl get clusterextensions
 NAME          VERSION   READY   PROGRESSING   STATUS         OPERATION   TARGET   AGE
@@ -1479,6 +1553,19 @@ status:
       name: my-operator
       version: 2.0.0
 ```
+
+**Current COS output**:
+
+```
+$ kubectl get clusterobjectsets
+NAME            AVAILABLE   PROGRESSING   AGE
+my-operator-1   True        True          5d
+my-operator-2   False       True          5m
+```
+
+No revision number, no reason why `my-operator-2` is unavailable, no phase detail.
+
+**Proposed COS output**:
 
 ```
 $ kubectl get clusterobjectsets
@@ -1729,6 +1816,18 @@ Object collision in phase "roles": Deployment.apps/v1 my-ns/conflicting-deploy o
 ### 3.16 COS Error: Secret Not Immutable (Blocked)
 
 A Secret referenced by the COS is not marked as immutable. This is a terminal blocking error on the COS.
+
+**Current output** (what users see today):
+
+```
+$ kubectl get clusterextensions
+NAME          INSTALLED BUNDLE   VERSION   INSTALLED   PROGRESSING   AGE
+my-operator                                False       False         5m
+```
+
+`PROGRESSING=False` — the one case where current output correctly signals a problem. But no reason *why* it's blocked, no target version, no health context. The user must describe the CE or inspect the COS to find the "secrets are not immutable" error.
+
+**Proposed output**:
 
 ```
 $ kubectl get clusterextensions
