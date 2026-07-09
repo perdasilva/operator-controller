@@ -177,7 +177,7 @@ Example (default):
 $ kubectl get clusterextensions
 NAME              READY   PROGRESSING   REASON                VERSION   OPERATION   TARGET   AGE
 cert-manager      True    False         Succeeded             1.14.0                         30d
-my-operator       False   True          Deploying            1.0.0     Upgrade     2.0.0    5d
+my-operator       False   True          Deploying             1.0.0     Upgrade     2.0.0    5d
 broken-operator   False   False         Blocked               <none>    Install     1.0.0    2h
 pull-fail         False   True          ImagePullFailed       <none>    Install     1.0.0    5m
 no-rbac           True    True          AuthorizationFailed   1.0.0     Upgrade     2.0.0    5d
@@ -497,7 +497,7 @@ A new ClusterExtension is being installed for the first time. The COS is rolling
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
+NAME          READY   PROGRESSING   REASON      VERSION   OPERATION   TARGET   AGE
 my-operator   False   True          Deploying   <none>    Install     1.0.0    30s
 ```
 
@@ -576,7 +576,7 @@ The user changed the version constraint. A new COS revision is rolling out while
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
+NAME          READY   PROGRESSING   REASON      VERSION   OPERATION   TARGET   AGE
 my-operator   False   True          Deploying   1.0.0     Upgrade     2.0.0    5d
 ```
 
@@ -723,7 +723,7 @@ The user changed configuration (e.g., service account, inline config) without ch
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON       VERSION   OPERATION     TARGET   AGE
+NAME          READY   PROGRESSING   REASON      VERSION   OPERATION     TARGET   AGE
 my-operator   False   True          Deploying   1.0.0     Reconfigure   1.0.0    5d
 ```
 
@@ -1864,13 +1864,13 @@ The upgrade includes CRD changes that fail the safety check (e.g., removing a st
 
 ```
 $ kubectl get clusterextensions
-NAME          READY   PROGRESSING   REASON            VERSION   OPERATION   TARGET   AGE
+NAME          READY   PROGRESSING   REASON              VERSION   OPERATION   TARGET   AGE
 my-operator   True    True          SafetyCheckFailed   1.0.0     Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
-NAME          READY   PROGRESSING   REASON            VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
+NAME          READY   PROGRESSING   REASON              VERSION   OPERATION   TARGET   MESSAGE                                                                  AGE
 my-operator   True    True          SafetyCheckFailed   1.0.0     Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: CRD upgra...   5d
 
 ```yaml
@@ -1966,11 +1966,11 @@ The print columns work well for managing multiple extensions at scale:
 
 ```
 $ kubectl get clusterextensions
-NAME              READY   PROGRESSING   REASON       VERSION   OPERATION   TARGET   AGE
-cert-manager      True    False         Succeeded    1.14.0                         30d
+NAME              READY   PROGRESSING   REASON      VERSION   OPERATION   TARGET   AGE
+cert-manager      True    False         Succeeded   1.14.0                         30d
 my-operator       False   True          Deploying   1.0.0     Upgrade     2.0.0    5d
-broken-operator   False   False         Blocked      <none>    Install     1.0.0    2h
-deprecated-op     True    False         Succeeded    3.2.1                          90d
+broken-operator   False   False         Blocked     <none>    Install     1.0.0    2h
+deprecated-op     True    False         Succeeded   3.2.1                          90d
 ```
 
 At a glance:
