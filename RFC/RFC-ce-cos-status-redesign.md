@@ -496,7 +496,53 @@ status:
 
 ---
 
-### 3.1a Happy Path: Initial State (Pre-Reconcile)
+### 3.1a Drift Recovery: Managed Resource Deleted
+
+The extension is installed and was healthy, but someone (or another controller) deleted a managed resource (e.g., a Deployment). The COS detects the missing resource via probe failure and re-creates it automatically. During the brief recovery window:
+
+```
+$ kubectl get clusterextensions
+NAME          VERSION   READY   PROGRESSING   STATUS         OPERATION   TARGET   AGE
+my-operator   1.0.0     False   False         Succeeded                          5d
+```
+
+```yaml
+status:
+  conditions:
+  - type: Installed
+    status: "True"
+    reason: Succeeded
+    message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
+  - type: Ready
+    status: "False"
+    reason: ProbeFailure
+    message: "Object Deployment.apps/v1 my-ns/my-deploy: object not found"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Progressing
+    status: "False"
+    reason: Succeeded
+    message: "Desired state reached"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
+  install:
+    bundle:
+      name: my-operator
+      version: 1.0.0
+  operation: null
+```
+
+**Key UX point**: `Ready=False/ProbeFailure` combined with `Progressing=False/Succeeded` uniquely identifies drift — the system is broken but no rollout is stuck. There is no new COS revision; the existing COS re-reconciles and re-creates the missing resource. Once probes pass again, `Ready` returns to `True/Succeeded`. No `operation` is set because drift recovery is not a revision-level rollout — it's the COS self-healing within the current revision.
+
+**Distinguishing from other `Ready=False` states**: In every other scenario where `Ready=False`, either `Progressing=True` (active rollout or retrying) or `Progressing=False/Blocked|InvalidConfiguration|ProgressDeadlineExceeded` (terminal error). `Progressing=False/Succeeded` with `Ready=False` can only mean drift.
+
+**User action**: Typically none — the COS self-heals within seconds. If the resource keeps being deleted (e.g., by another controller), investigate the external cause. If `Ready` does not recover, check the COS for details.
+
+---
+
+### 3.1b Happy Path: Initial State (Pre-Reconcile)
 
 A ClusterExtension has just been created. The controller has not yet reconciled it — this is the brief initial state before any work begins.
 
