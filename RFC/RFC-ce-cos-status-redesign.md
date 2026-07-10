@@ -29,7 +29,7 @@ The CE controller mirrors COS `Available` and `Progressing` conditions directly 
 
 ### CE status is insufficient for troubleshooting
 
-While the mirrored COS `Available` condition provides some health visibility on the CE (see above), the CE status surface lacks several signals that force users to inspect COS resources for common troubleshooting scenarios:
+The mirrored COS conditions (`Available` and `Progressing`) do provide health and error visibility on the CE — users can see probe failures and rollout errors without inspecting the COS directly. However, the CE status surface still lacks key signals for common troubleshooting and operational scenarios:
 
 1. **No CE-native health signal**: The COS `Available` condition is mirrored onto the CE, providing a proxy for health — but this is a leaked COS condition with COS-specific semantics (`ProbesSucceeded`, `ProbeFailure`), not a CE-native health signal. Its meaning is tied to COS internals and could change if the COS implementation changes. Meanwhile, `Installed=True` means "a bundle was installed," not "the managed resources are currently healthy." The CE needs its own health condition with stable, CE-owned semantics.
 
