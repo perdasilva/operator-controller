@@ -77,7 +77,8 @@ A new `Ready` condition provides a dedicated health signal for the extension's m
 Ready answers ONE question: **"are the managed resources currently healthy?"** It does not carry pipeline error detail (resolution failures, config errors, pull errors) — that is `Progressing`'s job. This follows the Kubernetes Deployment pattern where `Available` and `Progressing` are orthogonal signals that don't duplicate each other's information.
 
 - **When a COS revision is rolling out** (latest active COS without `succeededAt`): `Ready` reflects that COS's probe state. If it's still rolling out and probes haven't been evaluated, `Ready=False/Deploying`. If probes are failing, `Ready=False/ProbeFailure`. This means **Ready drops during normal upgrades** — it tracks the actual on-cluster state, not a cached view from the old revision.
-- **When only the installed revision exists** (no rollout in progress): `Ready` reflects the installed COS's probe state. If probes pass, `Ready=True/Succeeded`. If probes fail, `Ready=False/ProbeFailure`.
+- **When only the installed revision exists** (no rollout in progress): `Ready` reflects the installed COS's probe state. If probes pass, `Ready=True/Succeeded`. If probes fail (e.g., a managed resource was deleted or is unhealthy), `Ready=False/ProbeFailure`.
+- **When the installed COS has failing probes and no rollout is in progress** (drift recovery): `Ready=False/ProbeFailure` reflects the actual on-cluster state. Additionally, the CE controller sets `Progressing=True/ProbeFailure` — the COS is actively self-healing (re-creating the missing resource, waiting for probes to pass), and `Progressing=True` signals that the system is working on it. No `operation` is set because drift recovery is not a revision-level rollout. Once the COS self-heals and probes pass, both conditions return to steady state (`Ready=True/Succeeded`, `Progressing=False/Succeeded`). The absence of `operation` distinguishes drift recovery from a stuck upgrade.
 - **When a pre-COS error occurs** (resolution failure, pull failure, validation error — no new COS is created): If an installed revision exists, `Ready` stays based on that installed revision's probe state (the error didn't create a new COS, so the on-cluster state hasn't changed). If no installed revision exists, `Ready=False/Absent` — there's simply nothing deployed. The specific error goes in `Progressing`, not `Ready`.
 - **When nothing is installed and no error has occurred yet**: `Ready=Unknown/Pending` (brief initial state before first reconcile).
 
@@ -145,9 +146,17 @@ Translation rules for the CE `Progressing` condition from COS state:
 - COS `Progressing=True/RollingOut` AND COS `Ready=False/ProbeFailure` → CE `Progressing=True/ProbeFailure` with the probe failure detail. This distinguishes a stuck rollout from a healthy one.
 - COS `Progressing=True/RollingOut` AND COS `Ready=False/RollingOut` → CE `Progressing=True/Deploying` (normal progress, no issues).
 - COS `Progressing=True/RollingOut` AND COS `Ready=Unknown/Reconciling` → CE `Progressing=True/Deploying` (momentary transient state during normal progress; the COS is still making forward progress).
-- COS `Progressing=True/Retrying` → CE `Progressing=True/Retrying` with the COS error message (collisions, validation errors, etc.)
+- COS `Progressing=True/Retrying` → CE `Progressing=True/Retrying` with the COS error message
+- COS `Progressing=True/ObjectCollisionDetected` → CE `Progressing=True/Retrying` with the COS collision detail
+- COS `Progressing=True/ValidationFailed` → CE `Progressing=True/Retrying` with the COS validation error
 - COS `Progressing=False/Blocked` → CE `Progressing=False/Blocked` with the COS error message
 - COS `Progressing=False/ProgressDeadlineExceeded` → CE `Progressing=False/ProgressDeadlineExceeded` with the COS message
+
+Translation rules for the CE `Ready` condition from COS state:
+- When the latest COS has `Ready=True/ProbesSucceeded` → CE `Ready=True/Succeeded`
+- When the latest COS has `Ready=False/ProbeFailure` → CE `Ready=False/ProbeFailure` with the probe failure detail
+- When the latest COS has `Ready=False/RollingOut` → CE `Ready=False/Deploying`
+- When the latest COS has `Ready=Unknown/Reconciling` (pre-deployment failure — e.g., object collision, validation error, secret immutability): CE `Ready` stays based on the **installed** revision's probe state. If an installed revision exists and its probes pass, `Ready=True/Succeeded`. If no installed revision exists, `Ready=False/Absent`. Rationale: the latest COS failed before deploying any objects, so the actual on-cluster state has not changed from the installed revision.
 
 This ensures the RFC's guiding principle holds: users can understand, diagnose, and act on their CE status without ever looking at a COS.
 
@@ -255,6 +264,59 @@ type ClusterExtensionOperationStatus struct {
     Bundle BundleMetadata `json:"bundle"`
 }
 ```
+
+### 1.9 CE-Level Progress Deadline
+
+**Problem**: Several `Progressing=True` reasons — `AuthorizationFailed`, `UnsupportedContent`, `SafetyCheckFailed`, `PreflightFailed` — represent errors that will never self-resolve without human intervention. Yet `Progressing=True` signals "the system is working on it, wait." This is technically accurate (the controller *is* retrying), but misleading from an operational perspective: the retry will never succeed until someone fixes the underlying issue. The result is that `Progressing=True` alone cannot distinguish "normal rollout in progress" from "stuck on an error that needs a human."
+
+The COS already solves this for rollout-phase errors via `spec.progressDeadlineMinutes` — after the deadline, `Progressing=True/RollingOut` transitions to `Progressing=False/ProgressDeadlineExceeded`. But pre-COS errors (resolution, image pull, RBAC, validation) happen before a COS exists, so no COS deadline can fire.
+
+**Proposed**: Add a CE-level progress deadline that covers the entire pipeline — from the moment a spec change is observed until a successful rollout completes. This closes the gap for pre-COS errors and provides a single, universal "needs attention" signal: `Progressing=False` with a non-`Succeeded` reason.
+
+```go
+type ClusterExtensionSpec struct {
+    // ... existing fields ...
+
+    // progressDeadlineMinutes specifies the maximum time in minutes that the
+    // controller will retry before marking the extension as not progressing.
+    // The deadline covers the entire pipeline: resolution, image pull,
+    // validation, RBAC checks, and COS rollout. When the deadline is exceeded,
+    // the Progressing condition transitions to False/ProgressDeadlineExceeded.
+    // The controller continues retrying in the background — a successful
+    // retry resets the condition.
+    //
+    // When set, this value is also used to configure the COS-level progress
+    // deadline on newly created revisions.
+    //
+    // Default: 30. Set to 0 to disable.
+    // +optional
+    // +kubebuilder:default=30
+    // +kubebuilder:validation:Minimum=0
+    ProgressDeadlineMinutes *int32 `json:"progressDeadlineMinutes,omitempty"`
+}
+```
+
+**Deadline lifecycle**:
+
+1. **Starts** when a new `observedGeneration` is detected (the user changed the CE spec) and `Progressing` transitions to `True`.
+2. **Ticks** while `Progressing=True` — counting time spent in any retrying state (resolution, pull, RBAC, COS rollout, etc.).
+3. **Fires** when elapsed time exceeds `progressDeadlineMinutes`. The CE's `Progressing` condition transitions from `True/<reason>` to `False/ProgressDeadlineExceeded`. The last error message is preserved in the condition message (e.g., "Progress deadline exceeded after 30 minutes. Last error: pre-authorization failed: service account requires permissions [create deployments.apps]").
+4. **Resets** when `Progressing` transitions to `False/Succeeded` (rollout completed) or the spec changes again (new `observedGeneration` restarts the deadline).
+5. **Recovers**: If the underlying issue is fixed (e.g., RBAC granted) while in `ProgressDeadlineExceeded`, the next successful reconcile transitions back to `Progressing=False/Succeeded`. The deadline is not a permanent tombstone.
+
+**Interaction with COS deadline**: When the CE controller creates a COS, it sets the COS's `spec.progressDeadlineMinutes` to the remaining time from the CE deadline. This ensures a single pipeline-wide budget: if resolution took 10 minutes of a 30-minute deadline, the COS gets 20 minutes for its rollout. The COS deadline is an implementation detail derived from the CE deadline.
+
+**Why the controller continues retrying after the deadline**: The deadline changes the *signal*, not the *behavior*. The controller continues retrying because the issue may self-resolve (e.g., catalog update, registry recovery). But the signal to the user changes from "wait" (`Progressing=True`) to "needs attention" (`Progressing=False/ProgressDeadlineExceeded`). If a retry succeeds after the deadline, the condition recovers to `Progressing=False/Succeeded`.
+
+**Default value**: 30 minutes. Inspired by the Kubernetes Deployment `progressDeadlineSeconds` default (600s = 10 minutes), scaled up 3x to account for the broader OLM pipeline (resolution + pull + validation + rollout). Set to 0 to disable deadline enforcement entirely.
+
+**Impact on alerting**: With the CE deadline, a single alert rule covers all failure modes:
+
+```
+alert: Progressing=False AND reason NOT IN (Succeeded, Archived)
+```
+
+This fires for `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` — all states that need human attention. No need to enumerate individual `*Failed` reasons or add duration-based heuristics.
 
 ## Part 2: ClusterObjectSet Status Changes
 
@@ -631,8 +693,8 @@ status:
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Ready
     status: "False"
-    reason: Absent
-    message: "No bundle installed yet — rollout in progress"
+    reason: Deploying
+    message: "Managed resources are being updated"
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
@@ -2392,6 +2454,117 @@ At a glance:
 
 **Distinguishing upgrade-in-progress from stuck**: Both `my-operator` and `broken-operator` show `Ready=False`. The difference is `Progressing`: True means active work (normal), False means stuck (needs attention). The pattern to watch for is `Ready=False, Progressing=False` — that's the red flag.
 
+---
+
+### 3.25 CE Progress Deadline Exceeded (Pre-COS Error)
+
+The user's ServiceAccount lacks RBAC permissions. The CE has been retrying for 30 minutes (the default `progressDeadlineMinutes`). No COS was ever created because the error occurs before revision creation.
+
+**Before deadline** (first 30 minutes — same as §3.12):
+
+```
+$ kubectl get clusterextensions
+NAME          VERSION   READY   PROGRESSING   STATUS                OPERATION   TARGET   AGE
+my-operator   1.0.0     True    True          AuthorizationFailed   Upgrade     2.0.0    5d
+```
+
+**After deadline fires** (30+ minutes):
+
+```
+$ kubectl get clusterextensions
+NAME          VERSION   READY   PROGRESSING   STATUS                     OPERATION   TARGET   AGE
+my-operator   1.0.0     True    False         ProgressDeadlineExceeded   Upgrade     2.0.0    5d
+```
+
+```
+$ kubectl get clusterextensions -o wide
+NAME          VERSION   READY   PROGRESSING   STATUS                     OPERATION   TARGET   MESSAGE                                                                          AGE
+my-operator   1.0.0     True    False         ProgressDeadlineExceeded   Upgrade     2.0.0    Progress deadline exceeded after 30 minutes. Last error: pre-authorization ...   5d
+```
+
+```yaml
+status:
+  conditions:
+  - type: Installed
+    status: "True"
+    reason: Succeeded
+    message: "Installed bundle quay.io/example/my-operator:v1.0.0 successfully"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-02T08:00:00Z"
+  - type: Ready
+    status: "True"
+    reason: Succeeded
+    message: "All managed resources are healthy"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-02T08:00:00Z"
+  - type: Progressing
+    status: "False"
+    reason: ProgressDeadlineExceeded
+    message: "Progress deadline exceeded after 30 minutes. Last error: pre-authorization failed: service account requires the following permissions: [create deployments.apps in namespace my-ns]"
+    observedGeneration: 2
+    lastTransitionTime: "2026-07-07T10:30:00Z"
+  install:
+    bundle:
+      name: my-operator
+      version: 1.0.0
+  operation:
+    type: Upgrade
+    bundle:
+      name: my-operator
+      version: 2.0.0
+```
+
+**Key UX point**: The transition from `Progressing=True/AuthorizationFailed` to `Progressing=False/ProgressDeadlineExceeded` is the critical signal. During the first 30 minutes, `Progressing=True` means "the system is still trying." After the deadline, `Progressing=False` means "this needs attention — it won't fix itself." The last error is preserved in the message so the user knows *what* timed out, not just *that* it timed out.
+
+`Ready=True` — the old version is still healthy and unaffected. `operation` persists so the user can see what they were trying to roll out to.
+
+**Recovery**: If the user grants the required RBAC permissions, the next successful reconcile transitions back to `Progressing=True/Deploying` (COS creation begins) and eventually `Progressing=False/Succeeded`. The deadline is not a permanent tombstone — it is a signal, not a gate.
+
+**User action**: Check the preserved error message, fix the RBAC permissions, and wait for the controller to retry.
+
+---
+
+### 3.26 CE Progress Deadline Exceeded (Resolution — No Previous Install)
+
+A first-time install where the package name is wrong. The resolution has been failing for 30 minutes.
+
+```
+$ kubectl get clusterextensions
+NAME          VERSION   READY   PROGRESSING   STATUS                     OPERATION   TARGET   AGE
+my-operator   <none>    False   False         ProgressDeadlineExceeded                        35m
+```
+
+```yaml
+status:
+  conditions:
+  - type: Installed
+    status: "False"
+    reason: Absent
+    message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Ready
+    status: "False"
+    reason: Absent
+    message: "No bundle installed"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:00:00Z"
+  - type: Progressing
+    status: "False"
+    reason: ProgressDeadlineExceeded
+    message: "Progress deadline exceeded after 30 minutes. Last error: no bundles found for package \"my-operator\" matching version \">=1.0.0\" in channels [stable]"
+    observedGeneration: 1
+    lastTransitionTime: "2026-07-07T10:30:00Z"
+  install: null
+  operation: null
+```
+
+**Key UX point**: `Ready=False, Progressing=False` — the red flag pattern. Both conditions are False with non-success reasons, unambiguously signaling "needs attention." The preserved error tells the user exactly what failed. No `operation` because resolution never succeeded (we don't know the target bundle).
+
+Compare with §3.5 (same error, before deadline): `Progressing=True/ResolutionFailed` — the system is still trying and might succeed if a catalog update adds the bundle. After the deadline, the signal changes to "this probably won't fix itself."
+
+**User action**: Fix the package name, version constraint, or channel. Or add a catalog containing the desired package.
+
 ## Part 4: Condition Type and Reason Reference
 
 This section provides a complete inventory of all condition types and reasons after this RFC is implemented, including where each constant is defined.
@@ -2495,8 +2668,8 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 
 ### 4.5 Reason Semantics
 
-| Reason | Meaning | Retryable? |
-|--------|---------|-----------|
+| Reason | Meaning | Self-resolving? |
+|--------|---------|-----------------|
 | `Succeeded` | Operation completed successfully | N/A (terminal success) |
 | `Absent` | Resource does not exist yet (neutral, not an error) | N/A |
 | `Pending` | Waiting for initial state to be established | N/A |
@@ -2507,14 +2680,14 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ImagePullFailed` | Bundle image pull failed (auth, network, missing image) | Yes |
 | `AuthorizationFailed` | RBAC pre-authorization failed (ServiceAccount lacks permissions) | Yes |
 | `UnsupportedContent` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
-| `SafetyCheckFailed` | Preflight check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
+| `SafetyCheckFailed` | CRD safety check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
 | `ObjectCollisionDetected` | Object ownership conflict — another controller owns the resource | Yes |
 | `PreflightFailed` | CE preflight check failed (ServiceAccount not found, other CE-level validation) | Yes |
 | `ValidationFailed` | COS dry-run or admission validation failed (webhook rejection, schema validation) | Yes |
 | `Retrying` | COS-level transient error (secret resolution, watch setup, engine error) | Yes |
 | `Blocked` | Terminal error requiring manual intervention | No |
 | `InvalidConfiguration` | User configuration error requiring spec change | No |
-| `ProgressDeadlineExceeded` | Rollout exceeded configured time limit | No |
+| `ProgressDeadlineExceeded` | Rollout exceeded configured time limit | No (but controller continues retrying — a successful retry recovers the condition) |
 | `ProbesSucceeded` | All readiness probes passing | N/A (healthy) |
 | `Reconciling` | Transient error during reconciliation | Yes |
 | `Archived` | Revision has been archived (inactive) | N/A |
@@ -2567,20 +2740,24 @@ This can be shipped independently as a bug fix since the current `Progressing=Tr
 - `clusterextension_types.go`:
   - Add `ClusterExtensionOperationStatus` type and `OperationType` enum
   - Add `Operation` field to `ClusterExtensionStatus`
+  - Add `ProgressDeadlineMinutes *int32` field to `ClusterExtensionSpec` with `+kubebuilder:default=30`
   - Remove `ActiveRevisions` field and `RevisionStatus` type
   - Update print columns (Version, Ready, Progressing, Status, Operation, Target, Age, Message[wide])
 - `common_controller.go`:
   - Add `setReadyCondition()` helper functions
   - Update `setInstalledStatusFromRevisionStates()` to also set Ready
   - Ready derivation: reflect installed COS probe state when installed; reflect pipeline error state when not installed
+- `clusterextension_controller.go`:
+  - Add CE-level progress deadline tracking: record the time when `Progressing` transitions to `True` (new `observedGeneration`); on each reconcile, check elapsed time against `spec.progressDeadlineMinutes`; if exceeded, transition `Progressing` to `False/ProgressDeadlineExceeded` with the last error message preserved
+  - Implement `deadlineAwareRateLimiter` for the CE controller (similar pattern to the COS controller's `progress_deadline.go`) to ensure timely reconciliation when the deadline expires during exponential backoff
+  - Update `SetDeprecationStatus` (unchanged but verify no interaction)
+  - Update `ensureFailureConditionsWithReason` for new condition set (add Ready)
 - `boxcutter_reconcile_steps.go`:
   - Stop mirroring COS conditions; translate COS state into CE-native Ready/Progressing
   - Populate `status.operation` with type determination logic (Install/Upgrade/Reconfigure)
   - Remove `activeRevisions` population
   - Use `cos.Status.SucceededAt != nil` instead of `Succeeded=True` condition for installed classification
-- `clusterextension_controller.go`:
-  - Update `SetDeprecationStatus` (unchanged but verify no interaction)
-  - Update `ensureFailureConditionsWithReason` for new condition set (add Ready)
+  - When creating a COS, set `cos.Spec.ProgressDeadlineMinutes` to the remaining time from the CE deadline (pipeline-wide budget)
 - `conditionsets/conditionsets.go`:
   - Add `TypeReady` to `ConditionTypes`
   - Add `ReasonProbeFailure`, `ReasonPending`, `ReasonResolutionFailed`, `ReasonImagePullFailed`, `ReasonPreflightFailed`, `ReasonAuthorizationFailed`, `ReasonUnsupportedContent`, `ReasonSafetyCheckFailed` to `ConditionReasons`
@@ -2646,6 +2823,108 @@ Events on the ClusterObjectSet provide phase-level debugging context.
 - Events should be emitted on **transitions**, not on every reconcile (avoid flooding the event stream)
 - Consider deduplication — repeated probe failures should not emit a new event every 10 seconds; one event with an incrementing count is sufficient
 - Events are retained by the Kubernetes event TTL (default 1 hour) — they complement but do not replace conditions for persistent state
+
+## Part 7: Recommended Alerting and Automation Patterns
+
+This section provides operational guidance for teams integrating CE/COS status into monitoring, alerting, and CI/CD pipelines.
+
+### 7.1 Alerting Rules
+
+With the CE progress deadline (§1.9), a single alert pattern covers all failure modes that need human attention:
+
+**Critical — Needs immediate attention** (extension is stuck and won't self-resolve):
+
+```
+CE Progressing == "False" AND CE Progressing.reason NOT IN ("Succeeded")
+```
+
+This fires for `Blocked`, `InvalidConfiguration`, and `ProgressDeadlineExceeded`. All three require human intervention. Reason-specific routing can direct to different runbooks:
+- `Blocked` → check the Progressing message for the specific blocking error (immutable secrets, content digest mismatch, malformed image)
+- `InvalidConfiguration` → fix the CE spec (configuration schema error)
+- `ProgressDeadlineExceeded` → check the preserved last error in the message; the original failure reason tells you what to fix
+
+**Warning — Retrying, may need attention** (optional, for teams that want earlier visibility):
+
+```
+CE Progressing == "True" AND CE Progressing.reason NOT IN ("Deploying") FOR > 10m
+```
+
+This fires for `*Failed` reasons that have been retrying for a while. It catches issues before the progress deadline fires, for teams that want proactive alerting. The duration threshold avoids noise from brief transient errors.
+
+**Health check — Extension is unhealthy**:
+
+```
+CE Ready == "False" AND CE Progressing == "False"
+```
+
+This is the red flag pattern: nothing is healthy AND nothing is being done about it. Note: `Ready=False AND Progressing=True` is *normal* during upgrades — do NOT alert on that combination alone, or every upgrade will fire an alert.
+
+### 7.2 kubectl wait Patterns for CI/CD
+
+```bash
+# Wait for install/upgrade to complete (rollout finished)
+kubectl wait clusterextension/my-operator \
+  --for=condition=Progressing=False --timeout=600s
+
+# Wait for healthy (managed resources passing probes)
+kubectl wait clusterextension/my-operator \
+  --for=condition=Ready=True --timeout=600s
+
+# Wait for both — full rollout complete AND healthy
+# (run sequentially — Progressing=False first, then Ready=True)
+kubectl wait clusterextension/my-operator \
+  --for=condition=Progressing=False --timeout=600s
+kubectl wait clusterextension/my-operator \
+  --for=condition=Ready=True --timeout=60s
+
+# Check for failure (non-zero exit if stuck)
+kubectl wait clusterextension/my-operator \
+  --for=jsonpath='{.status.conditions[?(@.type=="Progressing")].reason}'=Succeeded \
+  --timeout=600s
+```
+
+**Important**: `kubectl wait --for=condition=Progressing=False` will succeed for BOTH `Succeeded` (good) AND `Blocked`/`ProgressDeadlineExceeded` (bad). CI/CD pipelines should check the reason after the wait returns:
+
+```bash
+kubectl wait clusterextension/my-operator \
+  --for=condition=Progressing=False --timeout=600s
+
+REASON=$(kubectl get clusterextension/my-operator \
+  -o jsonpath='{.status.conditions[?(@.type=="Progressing")].reason}')
+if [ "$REASON" != "Succeeded" ]; then
+  echo "Rollout failed with reason: $REASON"
+  exit 1
+fi
+```
+
+### 7.3 Fleet Monitoring at Scale
+
+For teams managing many extensions, quick filtering for problems:
+
+```bash
+# Show only extensions that need attention
+kubectl get clusterextensions -o wide | grep -E '(False\s+False|ProgressDeadlineExceeded|Blocked|InvalidConfiguration)'
+
+# Show all COS objects for a specific extension
+kubectl get clusterobjectsets -l olm.operatorframework.io/owner-name=my-operator
+
+# Show only actively rolling-out COS objects
+kubectl get clusterobjectsets | grep RollingOut
+```
+
+### 7.4 Prometheus Metrics (Future Work)
+
+For fleet-scale dashboards and PagerDuty integration, the conditions should be exposed as metrics. This is out of scope for this RFC, but the recommended shape is:
+
+```
+olm_clusterextension_condition{name, condition, status, reason} = 1
+```
+
+This enables Grafana queries like:
+- "How many extensions are healthy?" → `count(olm_clusterextension_condition{condition="Ready", status="True"})`
+- "Which extensions are stuck?" → `olm_clusterextension_condition{condition="Progressing", status="False", reason!="Succeeded"}`
+
+The kube-state-metrics project can generate these from standard Kubernetes conditions without custom instrumentation.
 
 # **Benefit**
 
