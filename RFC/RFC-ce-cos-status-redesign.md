@@ -3036,6 +3036,37 @@ Add per-phase status fields on CE as well as COS, making CE completely self-suff
 
 **Why not**: This duplicates COS data on the CE, couples CE's API surface to COS internals (phase names, phase semantics), and increases maintenance burden. The 90/10 rule applies — CE's `Ready` + `Progressing` + `status.operation` handle 90% of cases; the remaining 10% (deep phase debugging) is appropriately served by COS.
 
+### Alternative 4: Operation as CE Lifecycle State
+
+Instead of `status.operation` being a transient field (nil in steady state, populated during rollouts), model it as a persistent lifecycle state that always describes what the CE controller is doing. This would expand the `OperationType` enum to include steady-state phases:
+
+```go
+// +kubebuilder:validation:Enum=Install;Upgrade;Reconfigure;Downgrade;Monitoring
+Type OperationType `json:"type"`
+```
+
+| State | Meaning |
+|-------|---------|
+| `Install` | First-time installation in progress |
+| `Upgrade` | Version upgrade in progress |
+| `Downgrade` | Version downgrade in progress |
+| `Reconfigure` | Same-version configuration change in progress |
+| `Monitoring` | Steady state — watching managed resources for drift and self-healing |
+
+In this model, `operation` is never nil. Drift recovery (§3.1a) naturally fits as the `Monitoring` state — the CE is monitoring resources, detected drift, and is self-healing. The transition from `Monitoring` to `Upgrade` or `Reconfigure` happens when the user changes the spec.
+
+**Why not chosen for this RFC**:
+
+1. **Noise in the common case**: Most of the time, the extension is in steady state. Having `OPERATION=Monitoring` in every print column row adds a column value that is almost always the same — it's information without signal. The current proposal uses empty `OPERATION` and `TARGET` columns in steady state, keeping the default `kubectl get` output clean for the common case.
+
+2. **Mixes concerns**: The current `operation` answers "what rollout is happening?" — a transient event with a clear start and end. A lifecycle state answers "what mode is the controller in?" — a persistent classification. These are different questions. Conditions (`Ready`, `Progressing`) already capture the controller's mode; `operation` is specifically for rollout context.
+
+3. **Downgrade adds complexity without clear need**: Distinguishing downgrades from upgrades requires the controller to compare semantic versions, which is fragile across versioning schemes. The RFC's resolved question #5 notes that `Upgrade` can cover all version changes; `Downgrade` can be added non-breakingly later if users demonstrate a need.
+
+4. **Drift recovery is already well-expressed**: The combination of `Ready=False/ProbeFailure`, `Progressing=True/ProbeFailure`, and `operation=nil` clearly signals drift recovery in the current proposal. The absence of `operation` is itself the signal — "something is wrong but it's not a rollout." Adding a `Monitoring` state would make this more explicit but at the cost of the nil-means-nothing-interesting simplicity.
+
+This alternative could be revisited if users find the nil `operation` during drift recovery confusing, or if the lifecycle-state model proves more natural for GitOps tooling that wants to classify CE state categorically.
+
 # **Non-goals**
 
 - **Service-level health checks**: OLM manages Kubernetes resources, not application health. The `Ready` condition reflects resource-level probe status, not application-level availability. Application-level health monitoring is out of scope.
