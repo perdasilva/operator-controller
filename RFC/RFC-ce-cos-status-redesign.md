@@ -558,12 +558,13 @@ my-operator-2   False       True          5m
 | Ready | `.status.conditions[?(@.type=='Ready')].status` | Health signal (renamed from Available) |
 | Progressing | `.status.conditions[?(@.type=='Progressing')].status` | Is active work happening |
 | Status | `.status.conditions[?(@.type=='Progressing')].reason` | Why — `Archived` in the status column replaces the need for a separate Lifecycle column. Matches the CE pattern for consistent triage |
+| Succeeded At | `.status.succeededAt` | **Wide only** (priority=1). When this revision first completed its rollout — helps correlate revision completion with incidents in multi-revision debugging. Empty for revisions that never completed |
 | Message | `.status.conditions[?(@.type=='Progressing')].message` | **Wide only** (priority=1, shown with `-o wide`). Specific error detail for debugging |
 | Age | `.metadata.creationTimestamp` | Standard — always last per kubectl convention |
 
 The `Lifecycle` column is dropped because the `Status` column already shows `Archived` for archived revisions — any other reason implies Active.
 
-Example with multiple revisions including archived:
+Example (default):
 
 ```
 $ kubectl get clusterobjectsets
@@ -571,6 +572,16 @@ NAME            REVISION   READY    PROGRESSING   STATUS      AGE
 my-operator-1   1          <none>   False         Archived    30d
 my-operator-2   2          <none>   False         Archived    5d
 my-operator-3   3          True     False         Succeeded   1d
+```
+
+Example (wide — includes SUCCEEDED AT and MESSAGE):
+
+```
+$ kubectl get clusterobjectsets -o wide
+NAME            REVISION   READY    PROGRESSING   STATUS      SUCCEEDED AT             MESSAGE                          AGE
+my-operator-1   1          <none>   False         Archived    2026-06-10T08:00:00Z                                      30d
+my-operator-2   2          <none>   False         Archived    2026-07-05T10:00:00Z                                      5d
+my-operator-3   3          True     False         Succeeded   2026-07-09T08:00:00Z     Revision 1.0.0 has rolled out.   1d
 ```
 
 ### 2.6 Complete COS Status Structure
