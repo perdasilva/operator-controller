@@ -57,10 +57,21 @@ This RFC proposes changes across both the CE and COS APIs to establish a clean a
 ### 1.1 Fix Progressing Condition Semantics (Bug Fix)
 
 **Current (broken)**:
-- `Progressing=True, Reason=Succeeded` → "finished progressing"
+
+*CE-native (set by the CE controller directly):*
+- `Progressing=True, Reason=Succeeded` → "finished progressing" (contradicts Progressing=True semantics)
 - `Progressing=True, Reason=Retrying` → "retrying after error"
-- `Progressing=True, Reason=Deploying` → "active rollout"
+- `Progressing=True, Reason=RollingOut` → "active rollout" (Helm applier path)
 - `Progressing=False, Reason=Blocked` → "terminal error"
+- `Progressing=False, Reason=InvalidConfiguration` → "invalid configuration"
+
+*Mirrored from COS (boxcutter applier path — copied directly onto CE):*
+- `Progressing=True, Reason=Succeeded` → "COS finished rolling out" (same bug, from COS)
+- `Progressing=True, Reason=RollingOut` → "COS active rollout"
+- `Progressing=True, Reason=Retrying` → "COS transient error"
+- `Progressing=False, Reason=Blocked` → "COS terminal error"
+- `Progressing=False, Reason=ProgressDeadlineExceeded` → "COS deadline exceeded"
+- `Progressing=False, Reason=Archived` → "COS revision archived"
 
 **Proposed (fixed)**:
 - `Progressing=False, Reason=Succeeded` → "finished, not progressing anymore"
