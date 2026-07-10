@@ -429,7 +429,7 @@ No revision number, no status reason — the user can see two COS objects exist 
 
 ### 2.1 Rename Available to Ready
 
-The COS `Available` condition is renamed to `Ready` for consistency with the CE and to avoid implying service delivery semantics. "Ready" accurately conveys that all managed objects are on-cluster and passing their probes.
+The COS `Available` condition is renamed to `Ready`. As discussed in §1.2, `Ready` is the Kubernetes API conventions recommended top-level health condition for long-running resources, and the standard across the ecosystem (Pod, Node, Knative, Crossplane, CAPI, cert-manager). `Available` in Kubernetes implies a temporal stability guarantee (`minReadySeconds`) that the COS does not provide — the COS can only confirm that managed objects are on-cluster and passing their probes at the time they were last checked, which is the definition of `Ready`.
 
 ### 2.2 Convert Succeeded Condition to succeededAt Field
 
