@@ -51,13 +51,14 @@ The mirrored COS conditions (`Available` and `Progressing`) do provide health an
 
     ```
     $ kubectl get clusterextensions
-    NAME              VERSION   READY   PROGRESSING   STATUS      OPERATION   TARGET   AGE
-    cert-manager      1.14.0    True    False         Succeeded                        30d
-    my-operator       1.0.0     False   True          Deploying   Upgrade     2.0.0    5d
-    broken-operator   <none>    False   False         Blocked     Install     1.0.0    2h
+    NAME              VERSION   READY   PROGRESSING   STATUS      OPERATION     TARGET   AGE
+    cert-manager      1.14.0    True    False         Succeeded                          30d
+    my-operator       1.0.0     False   True          Deploying   Upgrade       2.0.0    5d
+    broken-operator   <none>    False   False         Blocked     Install       1.0.0    2h
+    reconfigured-op   1.0.0     False   True          Deploying   Reconfigure   1.0.0    10d
     ```
 
-    At a glance: `cert-manager` is healthy, `my-operator` is mid-upgrade to 2.0.0, and `broken-operator` is stuck and needs attention. No `kubectl describe`, no COS inspection required.
+    At a glance: `cert-manager` is healthy, `my-operator` is mid-upgrade to 2.0.0, `broken-operator` is stuck and needs attention, and `reconfigured-op` is applying a configuration change (same version, different settings). No `kubectl describe`, no COS inspection required.
 
 # **Approach**
 
