@@ -92,7 +92,30 @@ This aligns with the Kubernetes convention: `Progressing=True` means active work
 
 ### 1.2 Add Ready Condition
 
-A new `Ready` condition provides a dedicated health signal for the extension's managed resources. "Ready" is chosen over "Available" because "Available" implies service delivery semantics that OLM cannot guarantee — OLM can confirm that managed resources are on-cluster and passing probes, but not that the application is serving traffic correctly. Additionally, `Available` is reserved for potential future use as a stability signal — analogous to the Deployment pattern where `Available` means "Ready for at least `minReadySeconds`." If OLM later adds a concept of sustained health (e.g., "the extension has been Ready for a configured duration"), `Available` would be the natural condition for that, following established Kubernetes conventions.
+A new `Ready` condition provides a dedicated health signal for the extension's managed resources.
+
+**Why `Ready` over `Available`**: `Ready` is the [Kubernetes API conventions](https://github.com/kubernetes/community/blob/main/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties) recommended top-level summary condition for long-running resources. It is an oscillating, point-in-time signal — "the object was believed to be fully operational at the time it was last probed." This matches what OLM can verify: managed resources are on-cluster and passing their probes.
+
+`Available` carries different semantics in Kubernetes. The only core resource that uses it is Deployment, where `Available` means "at least the minimum required replicas have been `Ready` for at least `minReadySeconds`" — a temporal stability guarantee, not a point-in-time health check. Cluster API follows the same pattern: Machine has both `Ready` (healthy now) and `Available` (ready for `MinReadySeconds`); higher-level resources like MachineDeployment and Cluster use only `Available` to express minimum operational capacity during rolling operations.
+
+OLM has no concept of `minReadySeconds` or sustained health duration, so using `Available` would be semantically misleading — it would imply a stability guarantee that doesn't exist. `Ready` accurately conveys what the condition reports: "are the managed resources healthy right now?"
+
+This choice aligns with ecosystem convention. Across the Kubernetes ecosystem, `Ready` is the standard top-level health condition for CRDs:
+
+| Resource | Condition | Semantics | Duration? |
+|----------|-----------|-----------|-----------|
+| Pod | `Ready` | Containers + readiness gates healthy | No |
+| Node | `Ready` | Kubelet healthy, can accept pods | No |
+| Deployment | `Available` | Min replicas ready for `minReadySeconds` | **Yes** |
+| Knative (Service, Revision, etc.) | `Ready` | Top-level "happy state," aggregated from children | No |
+| Crossplane (MR, XR, Claim) | `Ready` | Resource appears ready to use (cumulative) | No |
+| CAPI Machine | `Ready` | Can host workloads (point-in-time) | No |
+| CAPI Machine | `Available` | Ready for `MinReadySeconds` (stability) | **Yes** |
+| cert-manager (Certificate, Issuer) | `Ready` | Able to function / cert obtained | No |
+
+ArgoCD's [health assessment](https://argo-cd.readthedocs.io/en/latest/operator-manual/health/) treats `Ready=True` on CRDs as the primary signal for "Healthy." Choosing `Ready` ensures CE health status integrates with GitOps tooling out of the box.
+
+Finally, `Available` is reserved for potential future use as a stability signal. If OLM later adds a concept of sustained health (e.g., "the extension has been Ready for a configured duration"), `Available` would be the natural condition for that — following the Deployment and CAPI pattern where `Available` = `Ready` + temporal stability.
 
 | Status | Reason | Meaning |
 |--------|--------|---------|
