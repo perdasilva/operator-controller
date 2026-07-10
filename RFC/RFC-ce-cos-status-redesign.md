@@ -397,6 +397,36 @@ This fires for `Blocked`, `InvalidConfiguration`, `ProgressDeadlineExceeded` —
 
 ## Part 2: ClusterObjectSet Status Changes
 
+The COS currently has three conditions and three print columns:
+
+**Current COS Conditions (3)**:
+
+| Condition | Status | Reason | Meaning |
+|-----------|--------|--------|---------|
+| **Available** | True | `ProbesSucceeded` | All managed objects pass probes |
+| | False | `ProbeFailure` | One or more objects failing probes |
+| | False | `RollingOut` | Rollout in progress, probes not yet evaluated |
+| | Unknown | `Reconciling` | Transient error during reconciliation |
+| | Unknown | `Archived` | Revision archived, objects torn down |
+| **Progressing** | True | `Succeeded` | Rollout complete (same bug as CE — contradicts Progressing=True) |
+| | True | `RollingOut` | Active rollout in progress |
+| | True | `Retrying` | Transient error (collisions, validation, watch setup, etc.) |
+| | False | `Blocked` | Terminal error (secret immutability, content digest mismatch) |
+| | False | `Archived` | Revision archived |
+| | False | `ProgressDeadlineExceeded` | Rollout exceeded deadline |
+| **Succeeded** | True | `Succeeded` | Latch — set once when rollout completes, never cleared |
+
+**Current COS Print Columns**:
+
+```
+$ kubectl get clusterobjectsets
+NAME            AVAILABLE   PROGRESSING   AGE
+my-operator-1   True        True          5d
+my-operator-2   False       True          30s
+```
+
+No revision number, no status reason — the user can see two COS objects exist but can't tell which is the old vs new revision or why one is unavailable.
+
 ### 2.1 Rename Available to Ready
 
 The COS `Available` condition is renamed to `Ready` for consistency with the CE and to avoid implying service delivery semantics. "Ready" accurately conveys that all managed objects are on-cluster and passing their probes.
