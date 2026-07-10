@@ -90,9 +90,9 @@ This RFC proposes changes across both the CE and COS APIs to establish a clean a
 
 This aligns with the Kubernetes convention: `Progressing=True` means active work is happening. This change can be treated as a bug fix since the current behavior contradicts the documented convention.
 
-### 1.2 Add Ready Condition
+### 1.2 Add CE-Native Ready Condition
 
-A new `Ready` condition provides a dedicated health signal for the extension's managed resources.
+Today, the CE's only health-like signal is the COS `Available` condition mirrored directly onto the CE (see §1.5). This is a leaked COS condition with COS-specific reasons (`ProbesSucceeded`, `ProbeFailure`) — not a CE-native signal. This section proposes replacing it with a CE-owned `Ready` condition that the CE controller derives from COS state using CE-native semantics. The COS-level rename from `Available` to `Ready` is a separate change covered in §2.1.
 
 **Why `Ready` over `Available`**: `Ready` is the [Kubernetes API conventions](https://github.com/kubernetes/community/blob/main/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties) recommended top-level summary condition for long-running resources. It is an oscillating, point-in-time signal — "the object was believed to be fully operational at the time it was last probed." This matches what OLM can verify: managed resources are on-cluster and passing their probes.
 
