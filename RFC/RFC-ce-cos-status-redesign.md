@@ -60,6 +60,8 @@ The mirrored COS conditions (`Available` and `Progressing`) do provide health an
 
     At a glance: `cert-manager` is healthy, `my-operator` is mid-upgrade to 2.0.0, `broken-operator` is stuck and needs attention, and `reconfigured-op` is applying a configuration change (same version, different settings). No `kubectl describe`, no COS inspection required.
 
+5. **No Kubernetes Events**: Neither the CE nor the COS controller emits Kubernetes Events. Conditions capture the current state, but they don't capture *when* things happened — there is no time-series trail of rollout progress, errors, or state transitions. An SRE running `kubectl describe clusterextension my-operator` sees conditions but no Events section. This means there is no way to answer "when did this start failing?" or "what changed 10 minutes ago?" without correlating controller logs. Events are a standard Kubernetes observability mechanism — `kubectl get events`, `kubectl describe`, and monitoring tools all consume them — and their absence leaves a gap in the operational workflow.
+
 # **Approach**
 
 ## Overview
