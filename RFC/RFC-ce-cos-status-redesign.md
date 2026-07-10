@@ -81,7 +81,7 @@ This RFC proposes changes across both the CE and COS APIs to establish a clean a
 - `Progressing=True, Reason=ImagePullFailed` → "image pull failed, retrying"
 - `Progressing=True, Reason=PreflightFailed` → "CE preflight check failed (e.g., ServiceAccount not found), retrying"
 - `Progressing=True, Reason=AuthorizationFailed` → "RBAC insufficient, retrying"
-- `Progressing=True, Reason=UnsupportedContent` → "bundle content unsupported, retrying"
+- `Progressing=False, Reason=UnsupportedContent` → "bundle content unsupported, requires different version or OLM feature support"
 - `Progressing=True, Reason=SafetyCheckFailed` → "CRD safety or other preflight check failed, retrying"
 - `Progressing=True, Reason=Retrying` → "COS-level transient error, retrying"
 - `Progressing=False, Reason=Blocked` → "terminal error" (unchanged)
@@ -217,7 +217,7 @@ broken-operator                                                  False       Tru
 
 **Column grouping**: The columns are ordered for left-to-right triage. **Identity** (NAME + Version) tells you what this is. **Health** (Ready + Progressing + Status) tells you if it's okay and why. **Activity** (Operation + Target) tells you what's happening — both empty in steady state, keeping the common view clean. The `Message` column is hidden by default and shown with `-o wide` — it provides the full error detail for SREs who need it without cluttering the default table.
 
-**Triage at a glance**: `Succeeded` = all good. `Deploying` = normal upgrade, wait. Any `*Failed` reason = specific retryable problem (use `-o wide` for detail). `Retrying` = COS-level transient error. `Blocked/InvalidConfiguration/ProgressDeadlineExceeded` = **needs attention, won't self-resolve**.
+**Triage at a glance**: `Succeeded` = all good. `Deploying` = normal upgrade, wait. Any `*Failed` reason = specific retryable problem (use `-o wide` for detail). `Retrying` = COS-level transient error. `Blocked/InvalidConfiguration/UnsupportedContent/ProgressDeadlineExceeded` = **needs attention, won't self-resolve**.
 
 Example (default):
 
@@ -248,7 +248,7 @@ no-rbac           1.0.0     True    True          AuthorizationFailed   Upgrade 
 |-----------|------------|-------------|----------------|
 | **Installed** | `Succeeded` — a bundle is installed | `Absent` — no bundle installed | — |
 | **Ready** | `Succeeded` — resources healthy, probes pass | `Absent` — no bundle installed (nothing deployed); `ProbeFailure` — specific probe failure on managed resources; `Deploying` — objects in transition, probes not yet passing | `Pending` — initial state before first reconcile |
-| **Progressing** | `Deploying` — active deployment, no issues; `ProbeFailure` — deployment active, probes failing; `ResolutionFailed` — bundle not found; `ImagePullFailed` — image pull error; `PreflightFailed` — CE preflight check failed (e.g., ServiceAccount not found); `AuthorizationFailed` — RBAC insufficient; `UnsupportedContent` — bundle content unsupported; `SafetyCheckFailed` — safety check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `ProgressDeadlineExceeded` — timed out | — |
+| **Progressing** | `Deploying` — active deployment, no issues; `ProbeFailure` — deployment active, probes failing; `ResolutionFailed` — bundle not found; `ImagePullFailed` — image pull error; `PreflightFailed` — CE preflight check failed (e.g., ServiceAccount not found); `AuthorizationFailed` — RBAC insufficient; `SafetyCheckFailed` — safety check failed; `Retrying` — COS-level transient error | `Succeeded` — done; `Blocked` — terminal error; `InvalidConfiguration` — bad config; `UnsupportedContent` — bundle content unsupported; `ProgressDeadlineExceeded` — timed out | — |
 | **Deprecated** | `Deprecated` — any deprecation exists | `NotDeprecated` — no deprecation | `DeprecationStatusUnknown` — catalog data unavailable |
 | **PackageDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
 | **ChannelDeprecated** | `Deprecated` | `NotDeprecated` | `DeprecationStatusUnknown` |
@@ -297,7 +297,7 @@ type ClusterExtensionOperationStatus struct {
 
 ### 1.9 CE-Level Progress Deadline
 
-**Problem**: Several `Progressing=True` reasons — `AuthorizationFailed`, `UnsupportedContent`, `SafetyCheckFailed`, `PreflightFailed` — represent errors that will never self-resolve without human intervention. Yet `Progressing=True` signals "the system is working on it, wait." This is technically accurate (the controller *is* retrying), but misleading from an operational perspective: the retry will never succeed until someone fixes the underlying issue. The result is that `Progressing=True` alone cannot distinguish "normal rollout in progress" from "stuck on an error that needs a human."
+**Problem**: Several `Progressing=True` reasons — `AuthorizationFailed`, `SafetyCheckFailed`, `PreflightFailed` — represent errors that will never self-resolve without human intervention. Yet `Progressing=True` signals "the system is working on it, wait." This is technically accurate (the controller *is* retrying), but misleading from an operational perspective: the retry will never succeed until someone fixes the underlying issue. The result is that `Progressing=True` alone cannot distinguish "normal rollout in progress" from "stuck on an error that needs a human."
 
 The COS already solves this for rollout-phase errors via `spec.progressDeadlineMinutes` — after the deadline, `Progressing=True/RollingOut` transitions to `Progressing=False/ProgressDeadlineExceeded`. But pre-COS errors (resolution, image pull, RBAC, validation) happen before a COS exists, so no COS deadline can fire.
 
@@ -1538,13 +1538,13 @@ The bundle contains unsupported features like APIServiceDefinitions or unsupport
 ```
 $ kubectl get clusterextensions
 NAME          VERSION   READY   PROGRESSING   STATUS               OPERATION   TARGET   AGE
-my-operator   1.0.0     True    True          UnsupportedContent   Upgrade     2.0.0    5d
+my-operator   1.0.0     True    False         UnsupportedContent   Upgrade     2.0.0    5d
 ```
 
 ```
 $ kubectl get clusterextensions -o wide
 NAME          VERSION   READY   PROGRESSING   STATUS               OPERATION   TARGET   MESSAGE                                                                  AGE
-my-operator   1.0.0     True    True          UnsupportedContent   Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: unsupport...   5d
+my-operator   1.0.0     True    False         UnsupportedContent   Upgrade     2.0.0    error for resolved bundle my-operator with version 2.0.0: unsupport...   5d
 ```
 
 ```yaml
@@ -1563,7 +1563,7 @@ status:
     observedGeneration: 2
     lastTransitionTime: "2026-07-02T08:00:00Z"
   - type: Progressing
-    status: "True"
+    status: "False"
     reason: UnsupportedContent
     message: "error for resolved bundle my-operator with version 2.0.0: unsupported bundle: apiServiceDefinitions are not supported"
     observedGeneration: 2
@@ -1579,7 +1579,7 @@ status:
       version: 2.0.0
 ```
 
-**Key UX point**: `Ready=True` — old version unaffected. The error is only in `Progressing`. No COS is created for the new version because the error occurs before revision creation.
+**Key UX point**: `Progressing=False` — this is terminal, not retrying. The resolved bundle's content won't change from retrying; the user must pick a different version or wait for OLM to add support. `Ready=True` — old version unaffected. No COS is created for the new version because the error occurs before revision creation. `operation` persists so the user can see what they were trying to roll out to.
 
 **User action**: Use a different bundle version that doesn't use unsupported features, or wait for feature support.
 
@@ -2625,7 +2625,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ReasonImagePullFailed` | `"ImagePullFailed"` | Progressing=True | ✓ | — |
 | `ReasonPreflightFailed` | `"PreflightFailed"` | Progressing=True | ✓ | — |
 | `ReasonAuthorizationFailed` | `"AuthorizationFailed"` | Progressing=True | ✓ | — |
-| `ReasonUnsupportedContent` | `"UnsupportedContent"` | Progressing=True | ✓ | — |
+| `ReasonUnsupportedContent` | `"UnsupportedContent"` | Progressing=False | ✓ | — |
 | `ReasonSafetyCheckFailed` | `"SafetyCheckFailed"` | Progressing=True | ✓ | — |
 | `ReasonRetrying` | `"Retrying"` | Progressing=True (COS-level transient) | ✓ | ✓ |
 | `ReasonBlocked` | `"Blocked"` | Progressing=False | ✓ | ✓ |
@@ -2683,7 +2683,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 |-----------|------|-------|---------|
 | **Installed** | Succeeded | Absent | — |
 | **Ready** | Succeeded | Absent, ProbeFailure, Deploying | Pending |
-| **Progressing** | Deploying, ProbeFailure, ResolutionFailed, ImagePullFailed, PreflightFailed, AuthorizationFailed, UnsupportedContent, SafetyCheckFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, ProgressDeadlineExceeded | — |
+| **Progressing** | Deploying, ProbeFailure, ResolutionFailed, ImagePullFailed, PreflightFailed, AuthorizationFailed, SafetyCheckFailed, Retrying | Succeeded, Blocked, InvalidConfiguration, UnsupportedContent, ProgressDeadlineExceeded | — |
 | **Deprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **PackageDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
 | **ChannelDeprecated** | Deprecated | NotDeprecated | DeprecationStatusUnknown |
@@ -2709,7 +2709,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `ResolutionFailed` | Bundle resolution failed (package/version not found, ambiguous) | Yes |
 | `ImagePullFailed` | Bundle image pull failed (auth, network, missing image) | Yes |
 | `AuthorizationFailed` | RBAC pre-authorization failed (ServiceAccount lacks permissions) | Yes |
-| `UnsupportedContent` | Bundle content unsupported (apiServiceDefinitions, install modes) | Yes (but may persist until bundle changes) |
+| `UnsupportedContent` | Bundle content unsupported (apiServiceDefinitions, install modes) | No |
 | `SafetyCheckFailed` | CRD safety check failed (CRD upgrade safety, etc.) | Yes (but may persist until bundle or config changes) |
 | `ObjectCollisionDetected` | Object ownership conflict — another controller owns the resource | Yes |
 | `PreflightFailed` | CE preflight check failed (ServiceAccount not found, other CE-level validation) | Yes |
@@ -2868,9 +2868,10 @@ With the CE progress deadline (§1.9), a single alert pattern covers all failure
 CE Progressing == "False" AND CE Progressing.reason NOT IN ("Succeeded")
 ```
 
-This fires for `Blocked`, `InvalidConfiguration`, and `ProgressDeadlineExceeded`. All three require human intervention. Reason-specific routing can direct to different runbooks:
+This fires for `Blocked`, `InvalidConfiguration`, `UnsupportedContent`, and `ProgressDeadlineExceeded`. All four require human intervention. Reason-specific routing can direct to different runbooks:
 - `Blocked` → check the Progressing message for the specific blocking error (immutable secrets, content digest mismatch, malformed image)
 - `InvalidConfiguration` → fix the CE spec (configuration schema error)
+- `UnsupportedContent` → use a different bundle version that doesn't use unsupported features
 - `ProgressDeadlineExceeded` → check the preserved last error in the message; the original failure reason tells you what to fix
 
 **Warning — Retrying, may need attention** (optional, for teams that want earlier visibility):
