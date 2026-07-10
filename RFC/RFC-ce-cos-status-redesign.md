@@ -11,27 +11,46 @@
 
 # **Need**
 
-Users of OLM v1 must currently inspect ClusterObjectSet (COS) resources — an implementation detail — to understand what is happening with their ClusterExtension (CE) deployments. The CE status surface has several issues that make it insufficient for day-to-day operations:
+The ClusterExtension (CE) is the user-facing API for managing operator lifecycle in OLM v1. From a product perspective, the ClusterObjectSet (COS) is an implementation detail — it is the mechanism the CE controller uses to apply and track managed resources, but users should never need to know it exists. The CE's status surface should be **self-sufficient**: a user should be able to understand, diagnose, and act on their extension's state entirely from the CE, without inspecting COS resources or any other internal objects.
 
-1. **Confusing condition semantics**: `Progressing=True, Reason=Succeeded` means "finished progressing," which contradicts the natural reading of `Progressing=True` as "active work is happening." This violates the [Kubernetes API conventions for conditions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties).
+Today, this abstraction boundary is broken. The CE status surface has several issues that force users behind the curtain and undermine integration with standard Kubernetes workflows.
 
-2. **Mirrored COS conditions on CE**: The CE controller mirrors COS `Available` and `Progressing` conditions directly onto the CE, mixing COS-specific reasons (like `ProbesSucceeded`, `Deploying`) with CE-native reasons. This couples CE's API surface to COS internals.
+### The CE is a leaky abstraction for the COS
 
-3. **No health signal**: The CE has no dedicated "is my extension healthy right now?" condition. `Installed=True` means "a bundle was installed," not "the managed resources are currently healthy."
+The CE controller mirrors COS `Available` and `Progressing` conditions directly onto the CE, including COS-specific reasons like `ProbesSucceeded` and `Deploying`. This exposes COS internals through the CE's API surface — if the COS condition vocabulary changes, the CE's status changes with it. Users who write automation against CE conditions are unknowingly coupling to COS implementation details. A clean abstraction boundary requires the CE to **translate** COS state into CE-native conditions with stable, CE-owned semantics.
 
-4. **No upgrade visibility**: During an upgrade, users cannot see what version is being rolled out to from the CE status alone. The target version is only visible in COS annotations.
+### CE status violates Kubernetes API conventions
 
-5. **No phase visibility on COS**: When a COS rollout stalls, users get a `ProbeFailure` message but cannot see which phase is stuck, which phases completed, or the overall progress through the phased rollout.
+`Progressing=True, Reason=Succeeded` means "finished progressing," which contradicts the natural reading of `Progressing=True` as "active work is happening." This violates the [Kubernetes API conventions for conditions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties). The impact extends beyond confusion — it breaks standard Kubernetes patterns that users and tooling depend on:
 
-6. **Print columns don't surface what matters**: The CE print columns show `Installed Bundle` (rarely needed at a glance) and the `Installed` condition (less actionable than a health signal).
+- **`kubectl wait`**: `kubectl wait --for=condition=Progressing=False` never succeeds because the terminal state is `Progressing=True/Succeeded`. Users cannot write correct CI/CD gates against CE status.
+- **GitOps health checks**: ArgoCD, Flux, and other GitOps controllers use conditions to determine resource health. `Progressing=True` is universally interpreted as "not yet converged," causing GitOps tools to report healthy extensions as perpetually progressing.
+- **Monitoring and alerting**: Prometheus alerting rules and kube-state-metrics dashboards that key on `Progressing=True` as a signal for active work will never clear, generating false positives or forcing users to write OLM-specific carve-outs.
+
+### CE status is insufficient for troubleshooting
+
+Users who encounter a problem with their extension must currently leave the CE and inspect COS resources to understand what is happening. This is the consequence of several missing signals on the CE:
+
+1. **No health signal**: The CE has no dedicated "is my extension healthy right now?" condition. `Installed=True` means "a bundle was installed," not "the managed resources are currently healthy." An SRE responding to an alert has no CE-level signal to check — they must find and inspect the correct COS.
+
+2. **No upgrade visibility**: During an upgrade, users cannot see what version is being rolled out to from the CE status alone. The target version is only visible in COS annotations. This means `kubectl get clusterextensions` during an upgrade looks identical to steady state — the user cannot distinguish "healthy and idle" from "upgrading to v2.0.0" without inspecting COS objects.
+
+3. **No phase visibility on COS**: When a COS rollout stalls, users get a `ProbeFailure` message but cannot see which phase is stuck, which phases completed, or the overall progress through the phased rollout. Diagnosing a stuck rollout requires inspecting individual managed objects.
+
+4. **Print columns don't surface what matters**: The CE print columns show `Installed Bundle` (rarely needed at a glance) and the `Installed` condition (less actionable than a health signal). The most common triage question — "is anything broken and does it need my attention?" — cannot be answered from the default `kubectl get` output.
 
 # **Approach**
 
 ## Overview
 
-This RFC proposes changes across both the CE and COS APIs to make the CE self-sufficient for user observability while adding phase-level detail to COS for advanced debugging.
+This RFC proposes changes across both the CE and COS APIs to establish a clean abstraction boundary between the user-facing CE and the internal COS, while ensuring the CE status surface works correctly with standard Kubernetes tooling and workflows.
 
-**Guiding principle**: COS is an implementation detail. Users should be able to understand, diagnose, and act on their CE status without ever looking at a COS. COS inspection is reserved for extreme debugging scenarios.
+**Guiding principles**:
+
+1. **COS is an implementation detail.** Users should be able to understand, diagnose, and act on their CE status without ever looking at a COS. COS inspection is reserved for extreme debugging scenarios.
+2. **CE must not be a leaky abstraction.** The CE translates COS state into CE-native conditions with CE-owned semantics. Changes to COS internals should not change the CE's API contract.
+3. **Follow Kubernetes conventions.** CE conditions must behave as the [Kubernetes API conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties) specify, so that `kubectl wait`, GitOps health checks, and standard monitoring integrations work without OLM-specific workarounds.
+4. **Design for how operators are managed at scale.** The status surface must support the full operational lifecycle: `kubectl` triage at a glance, `kubectl wait` for CI/CD gates, GitOps health assessment, Prometheus-based alerting, and SRE runbook-driven incident response.
 
 ## Part 1: ClusterExtension Status Changes
 
