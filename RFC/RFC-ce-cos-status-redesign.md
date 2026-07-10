@@ -31,7 +31,7 @@ The CE controller mirrors COS `Available` and `Progressing` conditions directly 
 
 Users who encounter a problem with their extension must currently leave the CE and inspect COS resources to understand what is happening. This is the consequence of several missing signals on the CE:
 
-1. **No health signal**: The CE has no dedicated "is my extension healthy right now?" condition. `Installed=True` means "a bundle was installed," not "the managed resources are currently healthy." An SRE responding to an alert has no CE-level signal to check — they must find and inspect the correct COS.
+1. **No CE-native health signal**: The COS `Available` condition is mirrored onto the CE, providing a proxy for health — but this is a leaked COS condition with COS-specific semantics (`ProbesSucceeded`, `ProbeFailure`), not a CE-native health signal. Its meaning is tied to COS internals and could change if the COS implementation changes. Meanwhile, `Installed=True` means "a bundle was installed," not "the managed resources are currently healthy." The CE needs its own health condition with stable, CE-owned semantics.
 
 2. **No upgrade visibility**: During an upgrade, users cannot see what version is being rolled out to from the CE status alone. The target version is only visible in COS annotations. This means `kubectl get clusterextensions` during an upgrade looks identical to steady state — the user cannot distinguish "healthy and idle" from "upgrading to v2.0.0" without inspecting COS objects.
 
