@@ -33,11 +33,31 @@ The mirrored COS conditions (`Available` and `Progressing`) do provide health an
 
 1. **No CE-native health signal**: The COS `Available` condition is mirrored onto the CE, providing a proxy for health — but this is a leaked COS condition with COS-specific semantics (`ProbesSucceeded`, `ProbeFailure`), not a CE-native health signal. Its meaning is tied to COS internals and could change if the COS implementation changes. Meanwhile, `Installed=True` means "a bundle was installed," not "the managed resources are currently healthy." The CE needs its own health condition with stable, CE-owned semantics.
 
-2. **No operation visibility**: During an upgrade or reconfiguration, users cannot see what is happening from the CE status alone. There is no indication of what kind of operation is in progress (install, upgrade, or reconfiguration), and the target version is only visible in COS annotations. This means `kubectl get clusterextensions` during an upgrade looks identical to steady state — the user cannot distinguish "healthy and idle" from "upgrading to v2.0.0" or "reconfiguring with new settings" without inspecting COS objects.
+2. **No operation visibility**: During an upgrade or reconfiguration, users cannot see what is happening from the CE status alone. There is no indication of what kind of operation is in progress (install, upgrade, or reconfiguration), and the target version is only visible in COS annotations. Consider an SRE triaging a fleet of extensions:
 
-3. **No phase visibility on COS**: When a COS rollout stalls, users get a `ProbeFailure` message but cannot see which phase is stuck, which phases completed, or the overall progress through the phased rollout. Diagnosing a stuck rollout requires inspecting individual managed objects.
+    ```
+    $ kubectl get clusterextensions
+    NAME              INSTALLED BUNDLE                     VERSION   INSTALLED   PROGRESSING   AGE
+    cert-manager      quay.io/example/cert-manager:v1.14   1.14.0    True        True          30d
+    my-operator       quay.io/example/my-operator:v1.0     1.0.0     True        True          5d
+    broken-operator                                                  False       True          2h
+    ```
 
-4. **Print columns don't surface what matters**: The CE print columns show `Installed Bundle` (rarely needed at a glance) and the `Installed` condition (less actionable than a health signal). The most common triage question — "is anything broken and does it need my attention?" — cannot be answered from the default `kubectl get` output.
+    All three show `PROGRESSING=True`. Which is healthy and idle? Which is mid-upgrade? Which is stuck? The SRE cannot tell — every state looks the same. There is no target version, no operation type, and no distinction between "upgrading to v2.0.0," "reconfiguring with new settings," and "happily running, nothing happening." Answering any of these questions requires inspecting COS objects or running `kubectl describe` on each extension individually.
+
+3. **No phase visibility on COS**: When a COS rollout stalls, users get a `ProbeFailure` message but cannot see which phase is stuck, which phases completed, or the overall progress through the phased rollout. For example, a `ProbeFailure` message like `"Object Deployment.apps/v1 my-ns/my-deploy: updatedReplicas (0) != replicas (3)"` tells the user *what* is failing but not *where in the rollout* it failed — were CRDs applied? Did RBAC get set up? Is this the first phase or the last? Answering these questions requires inspecting individual managed objects one by one.
+
+4. **Print columns don't surface what matters**: The CE print columns show `Installed Bundle` (a full image reference — rarely needed at a glance) and the `Installed` condition (less actionable than a health signal). The most common triage question — "is anything broken and does it need my attention?" — cannot be answered from the default `kubectl get` output. Compare the current output above with what this RFC proposes:
+
+    ```
+    $ kubectl get clusterextensions
+    NAME              VERSION   READY   PROGRESSING   STATUS      OPERATION   TARGET   AGE
+    cert-manager      1.14.0    True    False         Succeeded                        30d
+    my-operator       1.0.0     False   True          Deploying   Upgrade     2.0.0    5d
+    broken-operator   <none>    False   False         Blocked     Install     1.0.0    2h
+    ```
+
+    At a glance: `cert-manager` is healthy, `my-operator` is mid-upgrade to 2.0.0, and `broken-operator` is stuck and needs attention. No `kubectl describe`, no COS inspection required.
 
 # **Approach**
 
