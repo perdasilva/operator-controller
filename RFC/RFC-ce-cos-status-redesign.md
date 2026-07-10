@@ -222,7 +222,6 @@ The CE controller currently mirrors COS `Available` and `Progressing` conditions
 Translation rules for the CE `Progressing` condition from COS state:
 - COS `Progressing=True/RollingOut` AND COS `Ready=False/ProbeFailure` → CE `Progressing=True/ProbeFailure` with the probe failure detail. This distinguishes a stuck rollout from a healthy one.
 - COS `Progressing=True/RollingOut` AND COS `Ready=False/RollingOut` → CE `Progressing=True/Deploying` (normal progress, no issues).
-- COS `Progressing=True/RollingOut` AND COS `Ready=Unknown/Reconciling` → CE `Progressing=True/Deploying` (momentary transient state during normal progress; the COS is still making forward progress).
 - COS `Progressing=True/Retrying` → CE `Progressing=True/Retrying` with the COS error message
 - COS `Progressing=True/ObjectCollisionDetected` → CE `Progressing=True/Retrying` with the COS collision detail
 - COS `Progressing=True/ValidationFailed` → CE `Progressing=True/Retrying` with the COS validation error
@@ -232,8 +231,7 @@ Translation rules for the CE `Progressing` condition from COS state:
 Translation rules for the CE `Ready` condition from COS state:
 - When the latest COS has `Ready=True/ProbesSucceeded` → CE `Ready=True/Succeeded`
 - When the latest COS has `Ready=False/ProbeFailure` → CE `Ready=False/ProbeFailure` with the probe failure detail
-- When the latest COS has `Ready=False/RollingOut` → CE `Ready=False/Deploying`
-- When the latest COS has `Ready=Unknown/Reconciling` (pre-deployment failure — e.g., object collision, validation error, secret immutability): CE `Ready` stays based on the **installed** revision's probe state. If an installed revision exists and its probes pass, `Ready=True/Succeeded`. If no installed revision exists, `Ready=False/Absent`. Rationale: the latest COS failed before deploying any objects, so the actual on-cluster state has not changed from the installed revision.
+- When the latest COS has `Ready=False/RollingOut` (normal rollout OR pre-deployment failure such as object collision, validation error, secret immutability): If the COS is actively rolling out (`Progressing=True/RollingOut`), CE `Ready=False/Deploying`. If the COS failed before deploying objects (`Progressing=True/Retrying`, `Progressing=True/ObjectCollisionDetected`, `Progressing=True/ValidationFailed`, or `Progressing=False/Blocked`), CE `Ready` stays based on the **installed** revision's probe state — if an installed revision exists and its probes pass, `Ready=True/Succeeded`; if no installed revision exists, `Ready=False/Absent`. Rationale: the COS failed before deploying any objects, so the actual on-cluster state has not changed from the installed revision.
 
 This ensures the RFC's guiding principle holds: users can understand, diagnose, and act on their CE status without ever looking at a COS.
 
@@ -531,14 +529,15 @@ const (
 
 | Condition | Status=True | Status=False | Status=Unknown |
 |-----------|------------|-------------|----------------|
-| **Ready** | `ProbesSucceeded` — all managed objects pass probes | `ProbeFailure` — one or more probe failures; `RollingOut` — rollout not yet complete | `Reconciling` — transient error |
+| **Ready** | `ProbesSucceeded` — all managed objects pass probes | `ProbeFailure` — one or more probe failures; `RollingOut` — rollout not yet complete or pre-phase error occurred | — |
 
 **Note:** The `Ready` condition is not set on archived revisions — their objects have been torn down, so readiness is not applicable. The `Archived` reason on `Progressing` already conveys the lifecycle state.
 | **Progressing** | `RollingOut` — active rollout; `ObjectCollisionDetected` — object ownership conflict; `ValidationFailed` — preflight/dry-run failure; `Retrying` — other transient error | `Succeeded` — rollout complete; `Blocked` — terminal error; `Archived` — revision archived; `ProgressDeadlineExceeded` — deadline exceeded | — |
 
 **Key changes**:
 - `Progressing=True, Reason=Succeeded` (the same bug as CE) is fixed to `Progressing=False, Reason=Succeeded`.
-- The `Ready` condition is always set on first reconcile for **active** revisions, even if probes haven't been evaluated. Pre-phase errors set `Ready=Unknown/Reconciling` rather than leaving the condition absent. Archived revisions do NOT set `Ready` — their objects have been torn down, so readiness is not applicable.
+- The `Ready` condition is always set on first reconcile for **active** revisions, even if probes haven't been evaluated. Pre-phase errors set `Ready=False/RollingOut` (the rollout has not completed) rather than leaving the condition absent. Archived revisions do NOT set `Ready` — their objects have been torn down, so readiness is not applicable.
+- The previous `Available=Unknown/Reconciling` state is eliminated. Pre-phase errors (secret immutability, watch setup, engine creation, etc.) now set `Ready=False/RollingOut` — the rollout hasn't completed, so the revision is not ready. The specific error is conveyed by the `Progressing` condition.
 
 ### 2.5 Updated COS Print Columns
 
@@ -583,8 +582,7 @@ type ClusterObjectSetStatus struct {
     // The Ready condition represents whether the revision's managed objects are healthy:
     //   - When status is True and reason is ProbesSucceeded, all managed objects pass their readiness probes.
     //   - When status is False and reason is ProbeFailure, one or more objects are failing their probes.
-    //   - When status is False and reason is RollingOut, the rollout is in progress and readiness has not been established.
-    //   - When status is Unknown and reason is Reconciling, a transient error prevented probe observation.
+    //   - When status is False and reason is RollingOut, the rollout is in progress (or a pre-phase error occurred) and readiness has not been established.
     //
     // The Ready condition is not set on archived revisions — readiness is not applicable
     // when objects have been torn down.
@@ -1894,7 +1892,7 @@ my-operator   1.0.0     True    True          Retrying   Upgrade     2.0.0    Ob
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY     PROGRESSING   STATUS                    AGE
 my-operator-1   1          True      False         Succeeded                 5d
-my-operator-2   2          Unknown   True          ObjectCollisionDetected   2m
+my-operator-2   2          False     True          ObjectCollisionDetected   2m
 ```
 
 ```yaml
@@ -1935,9 +1933,9 @@ status:
 status:
   conditions:
   - type: Ready
-    status: "Unknown"
-    reason: Reconciling
-    message: "Object collision in phase \"roles\": Deployment.apps/v1 my-ns/conflicting-deploy owned by ClusterObjectSet/other-ext-1"
+    status: "False"
+    reason: RollingOut
+    message: "Rollout not yet complete"
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
@@ -2012,7 +2010,7 @@ my-operator   <none>    False   False         Blocked   Install     1.0.0    the
 ```
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY     PROGRESSING   STATUS    AGE
-my-operator-1   1          Unknown   False         Blocked   5m
+my-operator-1   1          False     False         Blocked   5m
 ```
 
 ```yaml
@@ -2050,9 +2048,9 @@ status:
 status:
   conditions:
   - type: Ready
-    status: "Unknown"
-    reason: Reconciling
-    message: "Reconciliation blocked before probe evaluation"
+    status: "False"
+    reason: RollingOut
+    message: "Rollout not yet complete"
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
@@ -2089,7 +2087,7 @@ my-operator   1.0.0     True    False         Blocked   Upgrade     2.0.0    res
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY     PROGRESSING   STATUS      AGE
 my-operator-1   1          True      False         Succeeded   5d
-my-operator-2   2          Unknown   False         Blocked     1h
+my-operator-2   2          False     False         Blocked     1h
 ```
 
 ```yaml
@@ -2130,9 +2128,9 @@ status:
 status:
   conditions:
   - type: Ready
-    status: "Unknown"
-    reason: Reconciling
-    message: "Reconciliation blocked before probe evaluation"
+    status: "False"
+    reason: RollingOut
+    message: "Rollout not yet complete"
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
@@ -2169,7 +2167,7 @@ my-operator   1.0.0     True    True          Retrying   Upgrade     2.0.0    re
 $ kubectl get clusterobjectsets
 NAME            REVISION   READY     PROGRESSING   STATUS             AGE
 my-operator-1   1          True      False         Succeeded          5d
-my-operator-2   2          Unknown   True          ValidationFailed   3m
+my-operator-2   2          False     True          ValidationFailed   3m
 ```
 
 ```yaml
@@ -2210,9 +2208,9 @@ status:
 status:
   conditions:
   - type: Ready
-    status: "Unknown"
-    reason: Reconciling
-    message: "revision validation error: dry-run apply rejected by webhook: admission controller denied the request"
+    status: "False"
+    reason: RollingOut
+    message: "Rollout not yet complete"
     observedGeneration: 1
     lastTransitionTime: "2026-07-07T10:00:00Z"
   - type: Progressing
@@ -2744,7 +2742,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 |----------|-------|---------|
 | `ClusterObjectSetReasonArchived` | `"Archived"` | Progressing=False |
 | `ClusterObjectSetReasonProbesSucceeded` | `"ProbesSucceeded"` | Ready=True |
-| `ClusterObjectSetReasonReconciling` | `"Reconciling"` | Ready=Unknown |
+| ~~`ClusterObjectSetReasonReconciling`~~ | ~~`"Reconciling"`~~ | Removed — pre-phase errors now use `Ready=False/RollingOut` |
 | `ClusterObjectSetReasonObjectCollisionDetected` | `"ObjectCollisionDetected"` | Progressing=True |
 | `ClusterObjectSetReasonValidationFailed` | `"ValidationFailed"` | Progressing=True |
 
@@ -2770,7 +2768,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 
 | Condition | True | False | Unknown |
 |-----------|------|-------|---------|
-| **Ready** | ProbesSucceeded | ProbeFailure, RollingOut | Reconciling |
+| **Ready** | ProbesSucceeded | ProbeFailure, RollingOut | — |
 | **Progressing** | RollingOut, ObjectCollisionDetected, ValidationFailed, Retrying | Succeeded, Blocked, Archived, ProgressDeadlineExceeded | — |
 
 ### 4.5 Reason Semantics
@@ -2796,7 +2794,7 @@ These constants are used by both ClusterExtension and ClusterObjectSet.
 | `InvalidConfiguration` | User configuration error requiring spec change | No |
 | `ProgressDeadlineExceeded` | Rollout exceeded configured time limit | No (but controller continues retrying — a successful retry recovers the condition) |
 | `ProbesSucceeded` | All readiness probes passing | N/A (healthy) |
-| `Reconciling` | Transient error during reconciliation | Yes |
+| ~~`Reconciling`~~ | ~~Transient error during reconciliation~~ | Removed — replaced by `Ready=False/RollingOut` |
 | `Archived` | Revision has been archived (inactive) | N/A |
 | `Deprecated` | Package/channel/bundle is deprecated | N/A |
 | `NotDeprecated` | Package/channel/bundle is not deprecated | N/A |
