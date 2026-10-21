@@ -246,7 +246,8 @@ func (c *ClusterObjectSetReconciler) reconcile(ctx context.Context, cos *ocv1.Cl
 	reconcileTime := metav1.NewTime(c.Clock.Now())
 	// Set object counts and phase status
 	// TODO: refactor and move condition setting operations into status pkg
-	status.FromReconcile(cos, rres, reconcileTime)
+	// status.FromReconcile(cos, rres, reconcileTime)
+	status.UpdateObservedPhasesForReconcile(cos, rres)
 
 	// Report revision-level preflight validation failures and re-check on a flat timer:
 	// the dry-run can be rejected for reasons that clear without a spec change (e.g. RBAC
@@ -423,11 +424,13 @@ func (c *ClusterObjectSetReconciler) archive(ctx context.Context, revisionEngine
 		// the error for rate-limited backoff.
 		return ctrl.Result{}, fmt.Errorf("error archiving revision: %v", err)
 	}
-	teardownTime := metav1.NewTime(c.Clock.Now())
+	// teardownTime := metav1.NewTime(c.Clock.Now())
 	// Set object counts
-	status.FromTeardown(cos, tdres, teardownTime)
+	// status.FromTeardown(cos, tdres, teardownTime)
+	status.UpdateObservedPhasesForTeardown(cos, tdres)
 	if tdres != nil && !tdres.IsComplete() {
 		markAsArchiving(cos)
+		// TODO: move archival requeue time to a const
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	// Ensure conditions are set before removing the finalizer when archiving

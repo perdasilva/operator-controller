@@ -29,6 +29,7 @@ import (
 // ObservedPhase records the observed content digest of a resolved phase.
 type ObservedPhaseApplyConfiguration struct {
 	// name is the phase name matching a phase in spec.phases.
+	//
 	Name *string `json:"name,omitempty"`
 	// status is the current state of this phase in the rollout. Must be
 	// one of Invalid, Pending, Reconciling, WaitingForAssertions,
@@ -45,9 +46,12 @@ type ObservedPhaseApplyConfiguration struct {
 	Message *string `json:"message,omitempty"`
 	// digest is the digest of the phase's resolved object content
 	// at first successful resolution, in the format "<algorithm>:<hex>".
+	//
 	Digest *string `json:"digest,omitempty"`
 	// objectCounts reports the number of objects in this phase by state.
 	ObjectCounts *ObjectCountsApplyConfiguration `json:"objectCounts,omitempty"`
+	// lastTransitionTime is the last time the phase transitioned from one status to another.
+	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
 }
 
 // ObservedPhaseApplyConfiguration constructs a declarative configuration of the ObservedPhase type for use with
@@ -101,5 +105,13 @@ func (b *ObservedPhaseApplyConfiguration) WithDigest(value string) *ObservedPhas
 // If called multiple times, the ObjectCounts field is set to the value of the last call.
 func (b *ObservedPhaseApplyConfiguration) WithObjectCounts(value *ObjectCountsApplyConfiguration) *ObservedPhaseApplyConfiguration {
 	b.ObjectCounts = value
+	return b
+}
+
+// WithLastTransitionTime sets the LastTransitionTime field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the LastTransitionTime field is set to the value of the last call.
+func (b *ObservedPhaseApplyConfiguration) WithLastTransitionTime(value metav1.Time) *ObservedPhaseApplyConfiguration {
+	b.LastTransitionTime = &value
 	return b
 }

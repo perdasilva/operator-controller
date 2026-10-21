@@ -1,6 +1,8 @@
 package status
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"pkg.package-operator.run/boxcutter/machinery"
 
@@ -23,6 +25,186 @@ func sumObjectCounts(phases []ocv1.ObservedPhase) ocv1.ObjectCounts {
 		counts.Ready += phases[i].ObjectCounts.Ready
 	}
 	return counts
+}
+
+func UpdateObservedPhasesForReconcile(objSet *ocv1.ClusterObjectSet, rres machinery.RevisionResult) {
+	if objSet == nil || rres.GetValidationError() != nil {
+		return
+	}
+
+	// Calculate totals from the spec
+	phaseTotals := make(map[string]int64)
+	for _, phase := range objSet.Spec.Phases {
+		phaseTotals[phase.Name] = int64(len(phase.Objects))
+	}
+
+	// Phases are reconciled in order; once a phase is incomplete, later phases are
+	// only observed read-only (paused). A paused phase's preflight dry-run can fail
+	// for reasons that resolve once earlier phases roll out (e.g. a Namespace a
+	// later phase depends on has not been created yet), so its validation error is
+	// not actionable yet. Only treat a phase's validation error as a terminal
+	// validation failure while every preceding phase is complete; otherwise skip it
+	// and let the rollout status (and the progress deadline) below take over.
+	// Collisions are still reported for paused phases below: an object owned by
+	// another controller does not become ownable just because earlier phases roll
+	// out, so it remains actionable regardless of phase ordering.
+	precedingPhasesComplete := true
+	for _, pres := range rres.GetPhases() {
+		observedPhase := ocv1.ObservedPhase{
+			Name: pres.GetName(),
+		}
+		if pres.GetValidationError() != nil {
+			if !precedingPhasesComplete {
+				observedPhase.Status = ocv1.PhaseStatusPending
+				observedPhase.Message = "waiting for earlier phases to complete"
+			} else {
+				observedPhase.Status = ocv1.PhaseStatusInvalid
+				observedPhase.Message = truncateMessage(pres.GetValidationError().Error())
+			}
+			updateObservedPhaseStatus(objSet, observedPhase)
+			continue
+		}
+
+		if !pres.IsComplete() {
+			precedingPhasesComplete = false
+		}
+
+		isPaused := false
+		observedPhase.ObjectCounts.Total = phaseTotals[pres.GetName()]
+		for _, pobj := range pres.GetObjects() {
+			if pobj.IsComplete() {
+				observedPhase.ObjectCounts.Ready++
+			}
+			switch pobj.Action() {
+			case machinery.ActionCreated:
+				if !pobj.IsPaused() {
+					observedPhase.ObjectCounts.Present++
+					observedPhase.ObjectCounts.Synced++
+				}
+			case machinery.ActionIdle:
+				observedPhase.ObjectCounts.Present++
+				observedPhase.ObjectCounts.Synced++
+			case machinery.ActionProgressed:
+				observedPhase.ObjectCounts.Present++
+			case machinery.ActionUpdated, machinery.ActionRecovered:
+				observedPhase.ObjectCounts.Present++
+				if !pobj.IsPaused() {
+					observedPhase.ObjectCounts.Synced++
+				}
+			case machinery.ActionCollision:
+				// TODO: collect object collisions and put in status
+			}
+
+			// track for phase status derivation
+			if pobj.IsPaused() {
+				isPaused = true
+			}
+		}
+
+		var (
+			// TODO: consider reframing as one or more objects have transitioned (rather than all - since there can be differences b/w the revisions)
+			isSuperseded  = pres.HasProgressed()
+			isReady = pres.IsComplete() && !isSuperseded
+			isSynced      = observedPhase.ObjectCounts.Synced == observedPhase.ObjectCounts.Total
+			isReconciling = !isSynced && !isPaused
+		)
+
+		switch {
+		case isReady:
+			observedPhase.Status = ocv1.PhaseStatusAvailable
+			observedPhase.Message = "all objects are ready"
+		case isSuperseded:
+			observedPhase.Status = ocv1.PhaseStatusSuperseded
+			observedPhase.Message = "all objects have progressed to a new revision"
+		case isSynced:
+			// TODO: collect assertion failures and add to status
+			observedPhase.Status = ocv1.PhaseStatusWaitingForAssertions
+			observedPhase.Message = "phase is waiting some objects to reach the desired state"
+		case isReconciling:
+			// TODO: deal with surfacing collisions
+			// TODO: reconsider splitting into the cases where reconciling might appear (e.g. ObjectCollision, objects are transitioning to another revision, etc.)
+			observedPhase.Status = ocv1.PhaseStatusReconciling
+			observedPhase.Message = "phase is being reconciled"
+		default:
+			// read-only while an earlier phase is still rolling out.
+			observedPhase.Status = ocv1.PhaseStatusPending
+			observedPhase.Message = "waiting for previous phases to complete"
+		}
+		updateObservedPhaseStatus(objSet, observedPhase)
+	}
+	objSet.Status.ObjectCounts = sumObjectCounts(objSet.Status.ObservedPhases)
+}
+
+func UpdateObservedPhasesForTeardown(objSet *ocv1.ClusterObjectSet, tres machinery.RevisionTeardownResult) {
+	if objSet == nil {
+		return
+	}
+
+	// Calculate totals from the spec
+	phaseTotals := make(map[string]int64)
+	for _, phase := range objSet.Spec.Phases {
+		phaseTotals[phase.Name] = int64(len(phase.Objects))
+	}
+
+	for _, pres := range tres.GetPhases() {
+		observedPhase := ocv1.ObservedPhase{
+			Name: pres.GetName(),
+		}
+
+		observedPhase.ObjectCounts.Total = phaseTotals[pres.GetName()]
+		observedPhase.ObjectCounts.Present = int64(len(pres.Waiting()))
+		observedPhase.ObjectCounts.Synced = 0
+
+		if name, ok := tres.GetActivePhaseName(); ok && name == pres.GetName() {
+			observedPhase.Status = ocv1.PhaseStatusTearingDown
+			observedPhase.Message = "removing all phase objects owned by this object set"
+		} else if slices.Contains(tres.GetGonePhaseNames(), pres.GetName()) {
+			observedPhase.Status = ocv1.PhaseStatusTeardownComplete
+			observedPhase.Message = "all phase object owned this object set have been removed"
+		} else {
+			observedPhase.Status = ocv1.PhaseStatusPending
+			observedPhase.Message = "waiting for previous phases to complete"
+		}
+		updateObservedPhaseStatus(objSet, observedPhase)
+	}
+	objSet.Status.ObjectCounts = sumObjectCounts(objSet.Status.ObservedPhases)
+}
+
+func updateObservedPhaseStatus(objSet *ocv1.ClusterObjectSet, observedPhase ocv1.ObservedPhase) {
+	if objSet == nil {
+		return
+	}
+	now := metav1.Now()
+	for i, ophase := range objSet.Status.ObservedPhases {
+		if ophase.Name != observedPhase.Name {
+			continue
+		}
+		// Digest is computed once at resolution time (before controller mutations)
+		// and is immutable; carry it forward so the full-struct replacement below
+		// does not drop the required field.
+		observedPhase.Digest = ophase.Digest
+		// Preserve CompletedAt once set.
+		if ophase.CompletedAt != nil {
+			observedPhase.CompletedAt = ophase.CompletedAt
+		}
+		if observedPhase.Status == ocv1.PhaseStatusAvailable && observedPhase.CompletedAt == nil {
+			observedPhase.CompletedAt = &now
+		}
+		// LastTransitionTime advances only when Status changes.
+		if ophase.Status != observedPhase.Status {
+			observedPhase.LastTransitionTime = now
+		} else {
+			observedPhase.LastTransitionTime = ophase.LastTransitionTime
+		}
+		objSet.Status.ObservedPhases[i] = observedPhase
+		return
+	}
+	// First time this phase appears in the status.
+	if observedPhase.Status == ocv1.PhaseStatusAvailable && observedPhase.CompletedAt == nil {
+		observedPhase.CompletedAt = &now
+	}
+	observedPhase.LastTransitionTime = now
+	objSet.Status.ObservedPhases = append(objSet.Status.ObservedPhases, observedPhase)
 }
 
 // FromReconcile updates the status of the given ClusterObjectSet based on a reconcile result,

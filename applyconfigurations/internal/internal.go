@@ -500,6 +500,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: digest
       type:
         scalar: string
+    - name: lastTransitionTime
+      type:
+        namedType: io.k8s.apimachinery.pkg.apis.meta.v1.Time
     - name: message
       type:
         scalar: string

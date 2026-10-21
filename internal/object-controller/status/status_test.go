@@ -142,6 +142,94 @@ func TestFromTeardown(t *testing.T) {
 	})
 }
 
+func TestUpdateObservedPhases(t *testing.T) {
+	completeIdleObject := func() machinery.ObjectResult {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ConfigMap"))
+		obj.SetName("cm")
+		return &fakeObjectResult{obj: obj, complete: true, action: machinery.ActionIdle}
+	}
+
+	t.Run("preserves pre-populated digest when updating phase status", func(t *testing.T) {
+		cos := cosWithPhaseObjects(
+			struct {
+				name    string
+				objects int
+			}{"p1", 1},
+		)
+		// Digest is computed once at resolution time and stored before reconcile.
+		// It is immutable and must survive status updates, otherwise the CRD's
+		// required/MinLength digest validation rejects the status write.
+		cos.Status.ObservedPhases[0].Digest = "sha256:abc123"
+
+		result := &fakeRevisionResult{
+			phases: []machinery.PhaseResult{
+				&fakePhaseResult{name: "p1", complete: true, objects: []machinery.ObjectResult{completeIdleObject()}},
+			},
+		}
+
+		UpdateObservedPhasesForReconcile(&cos, result)
+
+		require.Len(t, cos.Status.ObservedPhases, 1)
+		assert.Equal(t, "sha256:abc123", cos.Status.ObservedPhases[0].Digest)
+		assert.Equal(t, ocv1.PhaseStatusAvailable, cos.Status.ObservedPhases[0].Status)
+	})
+
+	t.Run("writes computed status and aggregate object counts back to the COS", func(t *testing.T) {
+		cos := cosWithPhaseObjects(
+			struct {
+				name    string
+				objects int
+			}{"p1", 1},
+			struct {
+				name    string
+				objects int
+			}{"p2", 1},
+		)
+		cos.Status.ObservedPhases[0].Digest = "sha256:aaa"
+		cos.Status.ObservedPhases[1].Digest = "sha256:bbb"
+
+		result := &fakeRevisionResult{
+			phases: []machinery.PhaseResult{
+				&fakePhaseResult{name: "p1", complete: true, objects: []machinery.ObjectResult{completeIdleObject()}},
+				&fakePhaseResult{name: "p2", complete: true, objects: []machinery.ObjectResult{completeIdleObject()}},
+			},
+		}
+
+		UpdateObservedPhasesForReconcile(&cos, result)
+
+		require.Len(t, cos.Status.ObservedPhases, 2)
+		assert.Equal(t, ocv1.PhaseStatusAvailable, cos.Status.ObservedPhases[0].Status)
+		assert.Equal(t, ocv1.PhaseStatusAvailable, cos.Status.ObservedPhases[1].Status)
+		assert.Equal(t, ocv1.ObjectCounts{Total: 2, Present: 2, Synced: 2, Ready: 2}, cos.Status.ObjectCounts)
+		assert.NotNil(t, cos.Status.ObservedPhases[0].CompletedAt)
+	})
+
+	t.Run("advances LastTransitionTime only on status change", func(t *testing.T) {
+		cos := cosWithPhaseObjects(
+			struct {
+				name    string
+				objects int
+			}{"p1", 1},
+		)
+		cos.Status.ObservedPhases[0].Digest = "sha256:abc123"
+
+		result := &fakeRevisionResult{
+			phases: []machinery.PhaseResult{
+				&fakePhaseResult{name: "p1", complete: true, objects: []machinery.ObjectResult{completeIdleObject()}},
+			},
+		}
+
+		UpdateObservedPhasesForReconcile(&cos, result)
+		firstTransition := cos.Status.ObservedPhases[0].LastTransitionTime
+		require.False(t, firstTransition.IsZero())
+
+		// A second pass with the same (Available) status must not advance the timestamp.
+		UpdateObservedPhasesForReconcile(&cos, result)
+		assert.Equal(t, firstTransition, cos.Status.ObservedPhases[0].LastTransitionTime)
+	})
+}
+
 // Test fakes
 
 type fakeRevisionResult struct {

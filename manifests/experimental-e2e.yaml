@@ -2668,7 +2668,7 @@ spec:
                   synced:
                     description: |-
                       synced is the number of objects in this phase whose cluster state
-                      matches the desired state.
+                      matches the desired state. Set to zero during teardown.
                     format: int64
                     maximum: 1000
                     minimum: 0
@@ -2718,6 +2718,11 @@ spec:
                         rule: self == oldSelf || oldSelf.size() == 0
                       - message: digest must be in the format '<algorithm>:<hex>'
                         rule: self.matches('^[a-z0-9]+:[a-f0-9]+$')
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the phase transitioned
+                        from one status to another.
+                      format: date-time
+                      type: string
                     message:
                       description: |-
                         message is a phase-level message providing context about the
@@ -2761,7 +2766,7 @@ spec:
                         synced:
                           description: |-
                             synced is the number of objects in this phase whose cluster state
-                            matches the desired state.
+                            matches the desired state. Set to zero during teardown.
                           format: int64
                           maximum: 1000
                           minimum: 0
@@ -2796,6 +2801,7 @@ spec:
                       type: string
                   required:
                   - digest
+                  - lastTransitionTime
                   - name
                   - status
                   type: object

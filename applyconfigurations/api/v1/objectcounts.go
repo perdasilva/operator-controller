@@ -31,7 +31,7 @@ type ObjectCountsApplyConfiguration struct {
 	// as objects are deleted.
 	Present *int64 `json:"present,omitempty"`
 	// synced is the number of objects in this phase whose cluster state
-	// matches the desired state.
+	// matches the desired state. Set to zero during teardown.
 	Synced *int64 `json:"synced,omitempty"`
 	// ready is the number of objects in this phase that are synced
 	// and pass their assertions.

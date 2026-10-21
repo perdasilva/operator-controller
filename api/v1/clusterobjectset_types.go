@@ -609,6 +609,13 @@ type ObservedPhase struct {
 	// objectCounts reports the number of objects in this phase by state.
 	// +optional
 	ObjectCounts ObjectCounts `json:"objectCounts,omitzero"`
+
+	// lastTransitionTime is the last time the phase transitioned from one status to another.
+	// +required
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Type=string
+	// +kubebuilder:validation:Format=date-time
+	LastTransitionTime metav1.Time `json:"lastTransitionTime" protobuf:"bytes,4,opt,name=lastTransitionTime"`
 }
 
 // ObjectCounts reports the number of objects in a ClusterObjectSet or phase by state.
@@ -629,7 +636,7 @@ type ObjectCounts struct {
 	Present int64 `json:"present"`
 
 	// synced is the number of objects in this phase whose cluster state
-	// matches the desired state.
+	// matches the desired state. Set to zero during teardown.
 	// +required
 	// +kubebuilder:validation:Minimum:=0
 	// +kubebuilder:validation:Maximum:=1000
