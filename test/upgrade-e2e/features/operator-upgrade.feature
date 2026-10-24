@@ -41,6 +41,11 @@ Feature: Operator upgrade verification
     Then catalog "test" reports Progressing as True with Reason Succeeded
     And catalog "test" reports Serving as True with Reason Available
 
+  # Temporarily skipped on experimental upgrades: the Helm->ClusterObjectSet storage
+  # pivot is disabled, so an experimental upgrade cannot migrate a pre-existing
+  # Helm-stored ClusterExtension. The standard upgrade path is unaffected and still runs
+  # this scenario. Remove the tag once the pivot is re-enabled.
+  @skip-boxcutter-upgrade
   Scenario: ClusterExtension remains functional after OLM upgrade
     Given ClusterExtension is reconciled
     When ClusterExtension version is updated to "1.0.1"

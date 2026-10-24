@@ -80,8 +80,19 @@ func (d *BoxcutterRevisionStatesGetter) GetRevisionStates(ctx context.Context, e
 	return rs, nil
 }
 
+// helmToCOSStoragePivotEnabled temporarily gates the Helm->ClusterObjectSet storage
+// migration (the "pivot"). It is false to keep the migration disabled while the
+// ClusterObjectDeployment-backed storage path is being reworked; set it to true to
+// re-enable. Kept as a var (not a const) so the guard below is not constant-folded into
+// unreachable code. The BoxcutterStorageMigrator implementation is retained intact.
+var helmToCOSStoragePivotEnabled = false
+
 func MigrateStorage(m StorageMigrator) ReconcileStepFunc {
 	return func(ctx context.Context, state *reconcileState, ext *ocv1.ClusterExtension) (*ctrl.Result, error) {
+		if !helmToCOSStoragePivotEnabled {
+			return nil, nil
+		}
+
 		objLbls := map[string]string{
 			labels.OwnerKindKey: ocv1.ClusterExtensionKind,
 			labels.OwnerNameKey: ext.GetName(),
